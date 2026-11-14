@@ -33,7 +33,7 @@ function geom() {
   var src = S.type === "ha" ? ha : bars, mode = cmpData.length ? "pct" : S.scale, ref0 = src[iL].c;
   var vOf = function (p, rf) { return mode === "log" ? Math.log(p) : mode === "pct" ? (p / rf - 1) * 100 : p; };
   var vm = function (p) { return vOf(p, ref0); };
-  var lineish = S.type === "line" || S.type === "area", lo = Infinity, hi = -Infinity, i;
+  var lineish = ["line", "linem", "step", "area", "baseline"].indexOf(S.type) >= 0, lo = Infinity, hi = -Infinity, i;
   for (i = iL; i <= iR; i++) {
     var b = src[i], a = vm(lineish ? b.c : b.l), z = vm(lineish ? b.c : b.h);
     if (a < lo) lo = a; if (z > hi) hi = z;
@@ -107,15 +107,24 @@ function drawMain(C) {
   }
 
   var src = G.src, ty = S.type;
-  if (ty === "candles" || ty === "hollow" || ty === "ha") {
-    var cw = Math.max(1, Math.floor(bw * 0.7));
+  if (ty === "candles" || ty === "hollow" || ty === "ha" || ty === "vcandles") {
+    var cw0 = Math.max(1, Math.floor(bw * 0.7)), cw = cw0, vmax = 0;
+    if (ty === "vcandles") for (i = G.iL; i <= G.iR; i++) vmax = Math.max(vmax, src[i].v || 0);
     for (i = G.iL; i <= G.iR; i++) {
-      b = src[i]; var x = X(i), Q = S.sty, up = Q.pc && i > 0 ? b.c >= src[i - 1].c : b.c >= b.o;
+      b = src[i]; if (ty === "vcandles") cw = Math.max(1, Math.floor(bw * (0.2 + 0.75 * (vmax ? (b.v || 0) / vmax : 1)))); var x = X(i), Q = S.sty, up = Q.pc && i > 0 ? b.c >= src[i - 1].c : b.c >= b.o;
       var bc = up ? (Q.bu || C.up) : (Q.bd || C.down), oc = up ? (Q.ou || C.up) : (Q.od || C.down), wc = up ? (Q.wu || C.up) : (Q.wd || C.down);
       if (Q.wick !== false) { ctx.strokeStyle = wc; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, G.Yp(b.h)); ctx.lineTo(Math.round(x) + 0.5, G.Yp(b.l)); ctx.stroke(); }
       var yt = G.Yp(Math.max(b.o, b.c)), yb = G.Yp(Math.min(b.o, b.c)), hh = Math.max(1, yb - yt);
       if (Q.body !== false) { ctx.fillStyle = (ty === "hollow" && up) ? C.bg : bc; ctx.fillRect(Math.round(x - cw / 2), yt, cw, hh); }
       if ((Q.border !== false && cw > 2) || (ty === "hollow" && up)) { ctx.strokeStyle = oc; ctx.strokeRect(Math.round(x - cw / 2) + 0.5, yt + 0.5, cw - 1, Math.max(0, hh - 1)); }
+    }
+  } else if (ty === "columns" || ty === "highlow") {
+    var cw2 = Math.max(1, Math.floor(bw * 0.7)), bot = T + G.priceH;
+    for (i = G.iL; i <= G.iR; i++) {
+      b = bars[i]; var xc = X(i), up2 = b.c >= b.o;
+      ctx.fillStyle = ty === "highlow" ? C.acc : (up2 ? C.up : C.down);
+      var y0 = ty === "highlow" ? G.Yp(b.h) : G.Yp(b.c), y1 = ty === "highlow" ? G.Yp(b.l) : bot;
+      ctx.fillRect(Math.round(xc - cw2 / 2), y0, cw2, Math.max(1, y1 - y0));
     }
   } else if (ty === "bars") {
     var tk = Math.max(2, bw * 0.35);
@@ -125,14 +134,35 @@ function drawMain(C) {
       ctx.moveTo(xb - tk, G.Yp(b.o)); ctx.lineTo(xb, G.Yp(b.o)); ctx.moveTo(xb, G.Yp(b.c)); ctx.lineTo(xb + tk, G.Yp(b.c)); ctx.stroke();
     }
   } else {
+    if (ty === "hlcarea") {
+      ctx.beginPath();
+      for (i = G.iL; i <= G.iR; i++) { if (i === G.iL) ctx.moveTo(X(i), G.Yp(bars[i].h)); else ctx.lineTo(X(i), G.Yp(bars[i].h)); }
+      for (i = G.iR; i >= G.iL; i--) ctx.lineTo(X(i), G.Yp(bars[i].l));
+      ctx.closePath(); ctx.globalAlpha = 0.18; ctx.fillStyle = C.acc; ctx.fill(); ctx.globalAlpha = 1;
+    }
+    if (ty === "baseline") {
+      var by = G.Yp(bars[G.iL].c), pth = function () { ctx.beginPath(); for (i = G.iL; i <= G.iR; i++) { var yb2 = G.Yp(bars[i].c); if (i === G.iL) ctx.moveTo(X(i), yb2); else ctx.lineTo(X(i), yb2); } };
+      [[T, by, C.up], [by, T + G.priceH, C.down]].forEach(function (z) {
+        ctx.save(); ctx.beginPath(); ctx.rect(0, z[0], pw, Math.max(0, z[1] - z[0])); ctx.clip();
+        pth(); ctx.strokeStyle = z[2]; ctx.lineWidth = S.sty.lw || 2; ctx.stroke();
+        pth(); ctx.lineTo(X(G.iR), by); ctx.lineTo(X(G.iL), by); ctx.closePath(); ctx.globalAlpha = 0.16; ctx.fillStyle = z[2]; ctx.fill(); ctx.restore();
+      });
+      ctx.setLineDash([3, 3]); ctx.strokeStyle = C.axT || C.acc; ctx.beginPath(); ctx.moveTo(0, Math.round(by) + 0.5); ctx.lineTo(pw, Math.round(by) + 0.5); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
+    } else {
     ctx.beginPath();
-    for (i = G.iL; i <= G.iR; i++) { var yy = G.Yp(bars[i].c); if (i === G.iL) ctx.moveTo(X(i), yy); else ctx.lineTo(X(i), yy); }
+    for (i = G.iL; i <= G.iR; i++) {
+      var yy = G.Yp(bars[i].c);
+      if (i === G.iL) ctx.moveTo(X(i), yy);
+      else { if (ty === "step") ctx.lineTo(X(i), G.Yp(bars[i - 1].c)); ctx.lineTo(X(i), yy); }
+    }
     if (ty === "area") {
       var gr = ctx.createLinearGradient(0, T, 0, T + G.priceH); gr.addColorStop(0, C.acc + "55"); gr.addColorStop(1, C.acc + "00");
       ctx.save(); ctx.lineTo(X(G.iR), T + G.priceH); ctx.lineTo(X(G.iL), T + G.priceH); ctx.closePath(); ctx.fillStyle = gr; ctx.fill(); ctx.restore();
       ctx.beginPath(); for (i = G.iL; i <= G.iR; i++) { var y2 = G.Yp(bars[i].c); if (i === G.iL) ctx.moveTo(X(i), y2); else ctx.lineTo(X(i), y2); }
     }
     ctx.strokeStyle = C.acc; ctx.lineWidth = S.sty.lw || 2; ctx.lineJoin = "round"; ctx.stroke(); ctx.lineWidth = 1;
+    if (ty === "linem" && bw > 5) { ctx.fillStyle = C.acc; for (i = G.iL; i <= G.iR; i++) { ctx.beginPath(); ctx.arc(X(i), G.Yp(bars[i].c), 2.5, 0, 6.2832); ctx.fill(); } }
+    }
   }
 
   var LW = 1.5;
