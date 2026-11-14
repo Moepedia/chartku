@@ -315,7 +315,7 @@ var txtPt = null;
 function showTxt(x, y, pt) { var el = $("#txtIn"); txtPt = pt; el.value = ""; el.style.left = Math.min(x, W - 180) + "px"; el.style.top = y + "px"; el.hidden = false; setTimeout(function () { el.focus(); }, 0); }
 function hideTxt() { $("#txtIn").hidden = true; txtPt = null; }
 $("#txtIn").addEventListener("keydown", function (e) {
-  if (e.key === "Enter") { var v = this.value.trim(), p = txtPt; hideTxt(); if (v && p) { var d = { id: "d" + Date.now().toString(36), type: "text", p1: p, text: v, c: "acc", w: 1.5 }; (S.drawings[S.sym.id] = S.drawings[S.sym.id] || []).push(d); S.sel = d.id; doneTool(); syncSel(); save(); } else setTool("cursor"); }
+  if (e.key === "Enter") { var v = this.value.trim(), p = txtPt; hideTxt(); if (v && p) { var d = { id: "d" + Date.now().toString(36), type: "text", p1: p, text: v, c: "acc", w: 1.5 }; snap(); (S.drawings[S.sym.id] = S.drawings[S.sym.id] || []).push(d); S.sel = d.id; doneTool(); syncSel(); save(); } else setTool("cursor"); }
   else if (e.key === "Escape") { hideTxt(); setTool("cursor"); }
 });
 function hideCtx() { $("#ctxm").hidden = true; }

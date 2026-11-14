@@ -15,3 +15,9 @@ lalu `node build.mjs`. Jangan mengedit `dist/` langsung.
 ## Catatan
 - Layout dan setelan tersimpan di localStorage peramban.
 - Lisensi data tiap penyedia (Binance, Coinbase, Kraken, Yahoo, CoinGecko, Upstox) berbeda-beda; periksa sebelum membuka untuk publik.
+
+## Uji end-to-end
+`npm i` lalu `npx playwright install chromium`, kemudian `npm run test:e2e`.
+Menjalankan `dist/` di Chromium headless dengan semua panggilan data disimulasikan (tanpa jaringan): memuat halaman,
+13 jenis chart, 7 timeframe, 12 indikator, drawing + undo/redo, tema, persistensi, watchlist, replay, unduh PNG,
+nama aksesibel kontrol, dan mobile 390 px. Screenshot masuk ke `e2e/shots/`.

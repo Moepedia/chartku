@@ -324,3 +324,10 @@ canvas { display:block; touch-action:none; }
 body.embed .brand, body.embed #alBtn, body.embed #layBtn, body.embed #rpBtn, body.embed #shot, body.embed #fs, body.embed #saveBtn,
 body.embed .side, body.embed .rrail, body.embed .tabsrow, body.embed .foot, body.embed .rangebar { display:none !important; }
 body.embed .work, body.embed .work.panel-closed { grid-template-columns:40px minmax(0,1fr); }
+
+/* Perbaikan mobile: bar bawah (rbar) tidak boleh melebihi lebar layar; jam turun ke baris berikutnya bila perlu. */
+@media (max-width:640px) {
+  .rbar { flex-wrap:wrap; row-gap:2px; }
+  .rbar > * { min-width:0; }
+  #tzClock { white-space:nowrap; margin-left:auto; padding:0 4px; }
+}
