@@ -19,8 +19,8 @@ document.addEventListener("keydown", function (e) {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") { redo(); e.preventDefault(); return; }
   if ((e.key === "Delete" || e.key === "Backspace") && S.sel) { deleteSel(); e.preventDefault(); return; }
   if (e.altKey) {
-    var m = { t: "trend", h: "hline", v: "vline", f: "fib", b: "rect", c: "cross", e: "eraser" }[e.key.toLowerCase()];
-    if (m) { setTool(m); e.preventDefault(); } else if (e.key.toLowerCase() === "r") { resetView(); draw(); e.preventDefault(); }
+    var kk = e.key.toLowerCase(), m = { t: "trend", h: "hline", v: "vline", j: "hray", f: "fib", b: "rect", c: "cross", e: "eraser" }[kk];
+    if (kk === "r" && e.shiftKey) { setTool("rect"); e.preventDefault(); } else if (m) { setTool(m); e.preventDefault(); } else if (kk === "r") { resetView(); draw(); e.preventDefault(); }
     return;
   }
   if (!e.ctrlKey && !e.metaKey && e.key.length === 1 && /[a-z0-9]/i.test(e.key)) { openSearch("sym", e.key); e.preventDefault(); }

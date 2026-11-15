@@ -179,8 +179,8 @@ function drawMeasure(m, C) {
   ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(l1, cx, cy + 10); ctx.fillText(l2, cx, cy + 25);
 }
 function handlesOf(d) {
-  if ((d.type === "channel" || d.type === "pitch") && d.p3) return [["p1", pxOf(d.p1)], ["p2", pxOf(d.p2)], ["p3", pxOf(d.p3)]];
-  if (TWO[d.type] || d.type === "channel" || d.type === "pitch") return [["p1", pxOf(d.p1)], ["p2", pxOf(d.p2)]];
+  if (THREE[d.type] && d.p3) return [["p1", pxOf(d.p1)], ["p2", pxOf(d.p2)], ["p3", pxOf(d.p3)]];
+  if (TWO[d.type] || THREE[d.type]) return [["p1", pxOf(d.p1)], ["p2", pxOf(d.p2)]];
   if (d.type === "hline") return [["body", { x: 18, y: pxOf(d.p1).y }]];
   if (d.type === "hray" || d.type === "cross") return [["p1", pxOf(d.p1)]];
   return [];

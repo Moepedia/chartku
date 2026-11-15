@@ -78,7 +78,7 @@ function save() {
   clearTimeout(saveT);
   saveT = setTimeout(function () {
     try {
-      localStorage.setItem(KEY, JSON.stringify({ sym: S.sym.id, tf: S.tf.k, type: S.type, scale: S.scale, invert: S.invert, lockScale: S.lockScale, hilo: S.hilo, events: S.events, ind: S.ind, xi: S.xi, cmp: S.cmp, cmpP: S.cmpP, cmpT: S.cmpT, colOv: S.colOv, iw: S.iw, ihide: S.ihide, sty: S.sty, magnet: S.magnet, grid: S.grid, tz: S.tz, src: srcPref, len: S.len, ctf: CTF.map(function (t) { return t.k; }), ftf: S.ftf, gcur: S.gcur, keep: S.keep, emojiCh: S.emojiCh,
+      localStorage.setItem(KEY, JSON.stringify({ sym: S.sym.id, tf: S.tf.k, type: S.type, scale: S.scale, invert: S.invert, lockScale: S.lockScale, hilo: S.hilo, events: S.events, ind: S.ind, xi: S.xi, cmp: S.cmp, cmpP: S.cmpP, cmpT: S.cmpT, colOv: S.colOv, iw: S.iw, ihide: S.ihide, sty: S.sty, magnet: S.magnet, magStr: S.magStr, curType: S.curType, grid: S.grid, tz: S.tz, src: srcPref, len: S.len, ctf: CTF.map(function (t) { return t.k; }), ftf: S.ftf, gcur: S.gcur, keep: S.keep, emojiCh: S.emojiCh,
         drawings: S.drawings, alerts: S.alerts, watch: S.watch, acc: S.acc, pine: S.pine, theme: document.documentElement.getAttribute("data-theme") || "" }));
     } catch (e) { /* storage unavailable */ }
   }, 300);
@@ -92,7 +92,7 @@ var S = {
   ind: Object.assign({ sma: false, ema: false, bb: false, vwap: false, vol: false, rsi: false, macd: false, stoch: false, atr: false, adx: false, st: false, ichi: false }, saved.ind || {}),
   len: Object.assign({ sma: 20, ema: 50, bb: 20, rsi: 14, stoch: 14, atr: 14, adx: 14, st: 10 }, saved.len || {}), hideD: false,
   cmp: (saved.cmp || []).filter(function (id) { return N_(id); }).slice(0, 3),
-  cmpP: (saved.cmpP || []).filter(function (id) { return N_(id); }).slice(0, 4), range: null, cmpT: saved.cmpT || {}, colOv: saved.colOv || {}, magnet: !!saved.magnet, grid: saved.grid !== false, tz: saved.tz || "local",
+  cmpP: (saved.cmpP || []).filter(function (id) { return N_(id); }).slice(0, 4), range: null, cmpT: saved.cmpT || {}, colOv: saved.colOv || {}, magnet: !!saved.magnet, magStr: saved.magStr === "strong" ? "strong" : "weak", curType: ["dot", "arrow"].indexOf(saved.curType) >= 0 ? saved.curType : "cross", grid: saved.grid !== false, tz: saved.tz || "local",
   iw: saved.iw || {}, ihide: saved.ihide || {}, sty: Object.assign({ lastLine: true, lw: 2 }, saved.sty || {}), tool: "cursor", gcur: Object.assign({}, saved.gcur || {}), keep: !!saved.keep, emojiCh: saved.emojiCh || "\u2B50",
   ftf: (saved.ftf || ["1m", "5m", "15m", "1H", "4H", "1D", "1W"]).filter(function (k) { return tfByKey(k); }), barW: 9, off: 6, cx: null, cy: null, yScale: 1, yShift: 0, yMan: false,
   sel: null, pend: null, meas: null,

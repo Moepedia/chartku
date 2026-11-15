@@ -360,3 +360,43 @@ body.embed .work, body.embed .work.panel-closed { grid-template-columns:40px min
 .xs input[type=color] { width:38px; height:24px; padding:0; border:0; background:none; }
 .xsft { border-top:1px solid var(--line); border-bottom:0 !important; }
 @media (max-width:640px) { .idbd { grid-template-columns:1fr; height:70vh; } .idl { flex-direction:row; overflow-x:auto; border-right:0; border-bottom:1px solid var(--line); } .idl button { white-space:nowrap; } }
+
+/* ===== Mobile (pola TradingView mobile): chart penuh layar, drawing tools di bawah, dropdown jadi bottom sheet ===== */
+@media (max-width:640px) {
+  html, body { height:100%; overscroll-behavior:none; }
+  .shell { height:100dvh; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+  .top { flex:none; gap:2px; padding:0 4px; }
+  .top #menuBtn, .top #theme, .top #shot, .top #layBtn, .top #saveBtn, .top #tfs, .top .sepv2, .top #qsBtn { display:none; }
+  .work, .work.panel-closed { flex:1; min-height:0; display:flex; flex-direction:column; }
+  .chartbox { order:1; flex:1; min-height:0; display:flex; flex-direction:column; }
+  .cwrap { flex:1; height:auto; min-height:0; }
+  .rail { order:2; flex:none; border-bottom:0; border-top:1px solid var(--line); padding:2px 4px; scrollbar-width:none; }
+  .rail::-webkit-scrollbar { display:none; }
+  .rail button { min-width:40px; height:38px; }
+  .rrail { order:3; flex:none; border-top:1px solid var(--line); padding:2px 6px; justify-content:space-around; }
+  .readout { display:flex; gap:10px; overflow-x:auto; white-space:nowrap; padding:4px 8px 0; font-size:11px; scrollbar-width:none; }
+  .readout::-webkit-scrollbar { display:none; }
+  .readout .when, .readout span:last-child { display:none; }
+  .legendwrap { padding:0 8px 2px; border-bottom:0; }
+  .rangebar { overflow-x:auto; white-space:nowrap; flex:none; scrollbar-width:none; }
+  .rangebar::-webkit-scrollbar { display:none; }
+  .rbar { flex:none; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
+  .rbar .feed, .rbar #feedTxt, .rbar [id^=feed] { display:none; }
+  .tabsrow { flex:none; display:flex; justify-content:space-around; padding-bottom:env(safe-area-inset-bottom); }
+  .tabsrow button { font-size:0; gap:0; padding:9px 18px; }
+  .tabsrow button svg { margin:0; }
+  #tzClock { font-size:11px; }
+  .readout { flex-wrap:nowrap; }
+  /* dropdown -> bottom sheet */
+  .pop { position:fixed !important; left:0 !important; right:0 !important; bottom:0 !important; top:auto !important; width:100% !important; max-width:none !important; max-height:74dvh !important; overflow-y:auto; border-radius:16px 16px 0 0; box-shadow:0 0 0 100vmax rgba(0,0,0,.5); padding-bottom:calc(10px + env(safe-area-inset-bottom)); z-index:60; }
+  .pop::before { content:""; display:block; width:38px; height:4px; border-radius:2px; background:var(--line); margin:2px auto 8px; }
+  .pop .opt, .pop label, .pop .tfrow { min-height:44px; }
+}
+
+/* toolbar melayang drawing di mobile: satu baris ringkas yang bisa digeser, menempel di bawah chart */
+@media (max-width:640px) {
+  .selbar { top:auto; bottom:6px; left:6px; right:6px; transform:none; max-width:none; flex-wrap:nowrap; justify-content:flex-start; overflow-x:auto; padding:5px 6px; border-radius:10px; scrollbar-width:none; }
+  .selbar::-webkit-scrollbar { display:none; }
+  .selbar .sw { flex:none; width:24px; height:24px; }
+  .selbar .btn { flex:none; padding:6px 10px; white-space:nowrap; }
+}

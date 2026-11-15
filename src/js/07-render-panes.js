@@ -156,7 +156,10 @@ function draw() {
     var fi = G.fiAtX(S.cx), idx = Math.round(fi); hovIdx = Math.max(0, Math.min(G.nv - 1, idx));
     var sx = Math.round(G.X(idx)) + 0.5;
     ctx.setLineDash(S.sty.cls === 1 ? [] : S.sty.cls === 2 ? [1, 3] : [3, 4]); ctx.strokeStyle = C.cross || C.muted;
-    ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, ph); ctx.moveTo(0, Math.round(S.cy) + 0.5); ctx.lineTo(pw, Math.round(S.cy) + 0.5); ctx.stroke(); ctx.setLineDash([]);
+    var ct0 = S.tool === "cursor" ? S.curType : "cross";
+    if (ct0 === "dot") { ctx.setLineDash([]); ctx.fillStyle = C.cross || C.muted; ctx.beginPath(); ctx.arc(sx, Math.round(S.cy) + 0.5, 3.5, 0, 6.2832); ctx.fill(); }
+    else if (ct0 !== "arrow") { ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, ph); ctx.moveTo(0, Math.round(S.cy) + 0.5); ctx.lineTo(pw, Math.round(S.cy) + 0.5); ctx.stroke(); }
+    ctx.setLineDash([]);
     var label = null;
     if (S.cy < G.mainH) { var pr = G.Pinv(S.cy); label = G.mode === "pct" ? ((pr / G.ref0 - 1) * 100).toFixed(2) + "%" : fmt(pr, S.sym.dec); }
     else G.panes.forEach(function (p) { if (S.cy >= p.top && S.cy < p.top + p.h) { var vv = p.hi - (S.cy - p.top - p.padT) / p.ih * (p.hi - p.lo); label = p.dec != null ? fmt(vv, p.dec) : vv.toFixed(2); } });

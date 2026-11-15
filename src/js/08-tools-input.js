@@ -1,6 +1,7 @@
 /* 08-tools-input: toolbar alat, hit-test, pointer, seleksi */
 /* ---------- tools rail ---------- */
 var ICONS = {
+  dotcur: "<circle cx='11' cy='11' r='2.6' fill='currentColor'/>", arrowcur: "<path d='M6 4l10 7-4.5 1.2L9.5 17z'/>",
   cursor: "<path d='M5 3l13 7-6 2-2 6z'/>", trend: "<path d='M4 17L17 5'/><circle cx='4' cy='17' r='1.8'/><circle cx='17' cy='5' r='1.8'/>",
   ray: "<path d='M4 16L19 6'/><circle cx='4' cy='16' r='1.8'/><path d='M15 5l4 1-1 4'/>", hline: "<path d='M3 10h14'/><circle cx='10' cy='10' r='1.8'/>",
   vline: "<path d='M10 3v14'/><circle cx='10' cy='10' r='1.8'/>", rect: "<rect x='4' y='5' width='13' height='10' rx='1'/>",
@@ -21,11 +22,11 @@ var ICONS = {
   elliott: "<path d='M3 18l3-9 3 4 3-9 3 5 4-5'/><path d='M3 18h16' stroke-dasharray='2 2'/>",
   drives: "<path d='M4 18L8 8l4 6 4-9'/><path d='M8 8l8-3' stroke-dasharray='2 2'/>"
 };
-var TN = { cursor: "Cross cursor", eraser: "Eraser", trend: "Trend line", ray: "Ray", extended: "Extended line", arrow: "Arrow", hline: "Horizontal line", hray: "Horizontal ray", vline: "Vertical line", cross: "Cross line", channel: "Parallel channel", pitch: "Andrews pitchfork", fib: "Fib retracement", fibext: "Fib extension", rect: "Rectangle", ellipse: "Ellipse", brush: "Brush", long: "Long position", short: "Short position", measure: "Measure", text: "Text note", emoji: "Icon", xabcd: "XABCD pattern", abcd: "ABCD pattern", triangle: "Triangle pattern", hs: "Head and shoulders", elliott: "Elliott impulse wave", drives: "Three drives" };
-var TK = { cursor: "Esc", trend: "Alt+T", hline: "Alt+H", vline: "Alt+V", fib: "Alt+F", rect: "Alt+B", cross: "Alt+C", eraser: "Alt+E" };
+var TN = { dotcur: "Dot", arrowcur: "Arrow", cursor: "Cross cursor", eraser: "Eraser", trend: "Trend line", ray: "Ray", extended: "Extended line", arrow: "Arrow", hline: "Horizontal line", hray: "Horizontal ray", vline: "Vertical line", cross: "Cross line", channel: "Parallel channel", pitch: "Andrews pitchfork", fib: "Fib retracement", fibext: "Fib extension", rect: "Rectangle", ellipse: "Ellipse", brush: "Brush", long: "Long position", short: "Short position", measure: "Measure", text: "Text note", emoji: "Icon", xabcd: "XABCD pattern", abcd: "ABCD pattern", triangle: "Triangle pattern", hs: "Head and shoulders", elliott: "Elliott impulse wave", drives: "Three drives" };
+var TK = { cursor: "Esc", trend: "Alt+T", hline: "Alt+H", vline: "Alt+V", hray: "Alt+J", fib: "Alt+F", rect: "Alt+Shift+R", cross: "Alt+C", eraser: "Alt+E" };
 var EMOJIS = ["\u2B50", "\uD83D\uDE80", "\uD83D\uDCC8", "\uD83D\uDCC9", "\uD83D\uDCB0", "\uD83D\uDC02", "\uD83D\uDC3B", "\u26A0\uFE0F", "\uD83D\uDD25", "\u2764\uFE0F", "\uD83D\uDC4D", "\uD83D\uDC4E", "\uD83C\uDFC6", "\uD83C\uDFAF", "\uD83D\uDC8E", "\u2753"];
 var GROUPS = [
-  { id: "cur", name: "Cursors", tools: ["cursor", "eraser"] },
+  { id: "cur", name: "Cursors", tools: ["cursor", "dotcur", "arrowcur", "eraser"] },
   { id: "lines", name: "Trend line tools", tools: ["trend", "ray", "extended", "arrow", "hline", "hray", "vline", "cross", "channel", "pitch"] },
   { id: "fib", name: "Gann and Fibonacci tools", tools: ["fib", "fibext"] },
   { id: "pat", name: "Patterns", tools: ["xabcd", "abcd", "triangle", "hs", "elliott", "drives"] },
@@ -38,7 +39,7 @@ function grpById(id) { return GROUPS.filter(function (g) { return g.id === id; }
 function grpOfTool(t) { return GROUPS.filter(function (g) { return g.tools.indexOf(t) >= 0; })[0]; }
 function grpCur(g) { var c = S.gcur[g.id]; return g.tools.indexOf(c) >= 0 ? c : g.tools[0]; }
 function svgI(t) { return "<svg viewBox='0 0 22 22' aria-hidden='true'>" + ICONS[t] + "</svg>"; }
-var HINTS = { eraser: "Click or tap a drawing to erase it.", extended: "Click the first point, then a second point. The line extends both ways.", hray: "Click to place a horizontal ray that runs to the right.", cross: "Click to place a cross line (horizontal and vertical).", arrow: "Click the tail, then the head.", channel: "Click two points for the trend, then a third to set the channel width.", pitch: "Click the pivot, then the two swing points.", ellipse: "Click one corner, then the opposite corner.", fibext: "Click the swing start, then the swing end.", long: "Click the entry, then the target. Stop is mirrored (1:1).", short: "Click the entry, then the target. Stop is mirrored (1:1).", brush: "Press and drag to draw freehand.", cursor: "Drag to pan, pinch or scroll to zoom, double-click or double-tap a drawing, indicator or candle for its settings (empty area: chart settings). Tap a drawing to select it. Right-click or press and hold for chart actions.", trend: "Click the start point, then click the end point.", ray: "Click the start point, then a second point to set direction.",
+var HINTS = { dotcur: "Dot cursor: selects and moves drawings.", arrowcur: "Arrow cursor: selects and moves drawings.", eraser: "Click or tap a drawing to erase it.", extended: "Click the first point, then a second point. The line extends both ways.", hray: "Click to place a horizontal ray that runs to the right.", cross: "Click to place a cross line (horizontal and vertical).", arrow: "Click the tail, then the head.", channel: "Click two points for the trend, then a third to set the channel width.", pitch: "Click the pivot, then the two swing points.", ellipse: "Click one corner, then the opposite corner.", fibext: "Click the swing start, then the swing end.", long: "Click the entry, then the target. Stop is mirrored (1:1).", short: "Click the entry, then the target. Stop is mirrored (1:1).", brush: "Press and drag to draw freehand.", cursor: "Drag to pan, pinch or scroll to zoom, double-click or double-tap a drawing, indicator or candle for its settings (empty area: chart settings). Tap a drawing to select it. Right-click or press and hold for chart actions.", trend: "Click the start point, then click the end point.", ray: "Click the start point, then a second point to set direction.",
   hline: "Click to place a horizontal line.", vline: "Click to place a vertical line.", rect: "Click one corner, then the opposite corner.", fib: "Click the swing start, then the swing end.", text: "Click where the note goes, type, press Enter.", measure: "Click the start, then the end to measure price, bars and time.", emoji: "Click to place the selected icon.", xabcd: "Click the five points: X, A, B, C, D.", abcd: "Click the four points: A, B, C, D.", triangle: "Click the five points: A, B, C, D, E.", hs: "Click the seven points of the head and shoulders.", elliott: "Click the six points: 0 through 5.", drives: "Click the five points: 0 through 4." };
 function buildRail() {
   var h = "";
@@ -75,7 +76,7 @@ function buildRail() {
       if (g.tools.length > 1 && (e.target.closest("[data-chev]") || (g.id !== "cur" && S.tool === c))) { openFly(g, b); return; }
       hideFly(); setTool(c);
     }
-    else if (b.id === "magnet") { S.magnet = !S.magnet; syncUI(); save(); }
+    else if (b.id === "magnet") { if (!S.magnet) { S.magnet = true; S.magStr = "weak"; } else if (S.magStr !== "strong") S.magStr = "strong"; else S.magnet = false; toast(S.magnet ? "Magnet: " + (S.magStr === "strong" ? "kuat (selalu snap ke OHLC)" : "lemah (snap bila dekat OHLC)") : "Magnet mati"); syncUI(); save(); }
     else if (b.id === "zoomIn") { if (G.pw) { zoomAt(G.pw / 2, S.barW * 1.3); draw(); } }
     else if (b.id === "zoomOut") { if (G.pw) { zoomAt(G.pw / 2, S.barW / 1.3); draw(); } }
     else if (b.id === "keepBtn") { S.keep = !S.keep; syncUI(); syncDraw(true); save(); toast(S.keep ? "Stay in drawing mode is on. The tool stays selected after each drawing." : "Stay in drawing mode is off."); }
@@ -83,7 +84,7 @@ function buildRail() {
     else if (b.id === "hideDr") { S.hideD = !S.hideD; syncUI(); draw(); }
     else if (b.id === "clearD") { snap(); S.drawings[S.sym.id] = []; S.sel = null; S.meas = null; syncSel(); draw(); save(); toast("Removed all drawings on " + S.sym.label); }
   });
-  $("#fly").addEventListener("click", function (e) { e.stopPropagation(); var eb = e.target.closest("button[data-e]"); if (eb) { S.emojiCh = eb.dataset.e; setTool("emoji"); save(); return; } var b = e.target.closest("button[data-t]"); if (!b) return; setTool(b.dataset.t); });
+  $("#fly").addEventListener("click", function (e) { e.stopPropagation(); var eb = e.target.closest("button[data-e]"); if (eb) { S.emojiCh = eb.dataset.e; setTool("emoji"); save(); return; } var b = e.target.closest("button[data-t]"); if (!b) return; if (b.dataset.t === "cursor") S.curType = "cross"; setTool(b.dataset.t); });
   refreshRail();
 }
 var mqPhone = matchMedia("(max-width: 640px)");
@@ -102,7 +103,7 @@ function refreshRail() {
   GROUPS.forEach(function (g) {
     var b = $("#rail [data-g='" + g.id + "']"); if (!b) return;
     if (g.id === "icons") { b.dataset.tool = "emoji"; b.title = "Icons: tap to pick a symbol"; b.setAttribute("aria-label", "Icons"); b.setAttribute("aria-pressed", String(S.tool === "emoji")); b.innerHTML = "<span class='em'>" + (S.emojiCh || "\u2B50") + "</span>"; return; }
-    var c = g.id === "cur" ? (S.tool === "eraser" ? "eraser" : "cursor") : grpCur(g), on = g.tools.indexOf(S.tool) >= 0, tip = TN[c] + (TK[c] ? " (" + TK[c] + ")" : "") + (g.tools.length > 1 ? ". Tap the corner or press and hold for more " + g.name.toLowerCase() : "");
+    var c = g.id === "cur" ? (S.tool === "eraser" ? "eraser" : S.curType === "dot" ? "dotcur" : S.curType === "arrow" ? "arrowcur" : "cursor") : grpCur(g), on = g.tools.indexOf(S.tool) >= 0, tip = TN[c] + (TK[c] ? " (" + TK[c] + ")" : "") + (g.tools.length > 1 ? ". Tap the corner or press and hold for more " + g.name.toLowerCase() : "");
     b.dataset.tool = c; b.title = tip; b.setAttribute("aria-label", TN[c] + (g.tools.length > 1 ? ", group " + g.name : "")); b.setAttribute("aria-pressed", String(on));
     var sv = b.querySelector("svg"); if (sv) sv.innerHTML = ICONS[c];
   });
@@ -118,8 +119,9 @@ function syncDraw(force) {
   el.hidden = false;
 }
 function setTool(t) {
+  if (t === "dotcur" || t === "arrowcur") { S.curType = t === "dotcur" ? "dot" : "arrow"; t = "cursor"; }
   S.tool = t; S.pend = null; hideTxt(); hideFly(); var g = grpOfTool(t); if (g && g.id !== "cur") S.gcur[g.id] = t;
-  $("#hint").textContent = HINTS[t]; cv.style.cursor = t === "eraser" ? "cell" : "crosshair"; syncUI(); syncDraw(true); draw(); save();
+  $("#hint").textContent = HINTS[t]; cv.style.cursor = t === "eraser" ? "cell" : (t === "cursor" && S.curType && S.curType !== "cross") ? "default" : "crosshair"; syncUI(); syncDraw(true); draw(); save();
 }
 function doneTool() { if (S.keep) { S.pend = null; hideTxt(); syncDraw(true); draw(); } else setTool("cursor"); }
 
@@ -129,7 +131,7 @@ function toPt(x, y) {
   var fi = G.fiAtX(x), p = G.Pinv(Math.min(y, G.mainH));
   if (S.magnet) {
     var i = Math.max(0, Math.min(bars.length - 1, Math.round(fi))), b = bars[i], best = b.c, bd = 1e18; fi = i;
-    [b.o, b.h, b.l, b.c].forEach(function (v) { var d = Math.abs(G.Yp(v) - y); if (d < bd) { bd = d; best = v; } }); p = best;
+    [b.o, b.h, b.l, b.c].forEach(function (v) { var d = Math.abs(G.Yp(v) - y); if (d < bd) { bd = d; best = v; } }); if (S.magStr === "strong" || bd <= 24) p = best;
   }
   return { t: iToT(fi), p: p };
 }
@@ -198,7 +200,7 @@ cv.addEventListener("pointerdown", function (e) {
   if (S.tool !== "cursor" && x < G.pw && y < G.mainH) {
     var pt = toPt(x, y);
     if (ONE[S.tool]) { commit(S.tool, pt); return; }
-    if (S.tool === "text") { showTxt(x, y, pt); return; }
+    if (S.tool === "text" || XTXT[S.tool]) { showTxt(x, y, pt); return; }
     if (S.tool === "brush") { drag = { kind: "brush", pts: [pt] }; return; }
     if (S.tool === "emoji") { commit(S.tool, pt); return; }
     if (NP[S.tool]) {
@@ -315,7 +317,7 @@ var txtPt = null;
 function showTxt(x, y, pt) { var el = $("#txtIn"); txtPt = pt; el.value = ""; el.style.left = Math.min(x, W - 180) + "px"; el.style.top = y + "px"; el.hidden = false; setTimeout(function () { el.focus(); }, 0); }
 function hideTxt() { $("#txtIn").hidden = true; txtPt = null; }
 $("#txtIn").addEventListener("keydown", function (e) {
-  if (e.key === "Enter") { var v = this.value.trim(), p = txtPt; hideTxt(); if (v && p) { var d = { id: "d" + Date.now().toString(36), type: "text", p1: p, text: v, c: "acc", w: 1.5 }; snap(); (S.drawings[S.sym.id] = S.drawings[S.sym.id] || []).push(d); S.sel = d.id; doneTool(); syncSel(); save(); } else setTool("cursor"); }
+  if (e.key === "Enter") { var v = this.value.trim(), p = txtPt; hideTxt(); if (v && p) { var d = { id: "d" + Date.now().toString(36), type: XTXT[S.tool] ? S.tool : "text", p1: p, text: v, c: "acc", w: 1.5 }; snap(); (S.drawings[S.sym.id] = S.drawings[S.sym.id] || []).push(d); S.sel = d.id; doneTool(); syncSel(); save(); } else setTool("cursor"); }
   else if (e.key === "Escape") { hideTxt(); setTool("cursor"); }
 });
 function hideCtx() { $("#ctxm").hidden = true; }
