@@ -21,3 +21,9 @@ lalu `node build.mjs`. Jangan mengedit `dist/` langsung.
 Menjalankan `dist/` di Chromium headless dengan semua panggilan data disimulasikan (tanpa jaringan): memuat halaman,
 13 jenis chart, 7 timeframe, 12 indikator, drawing + undo/redo, tema, persistensi, watchlist, replay, unduh PNG,
 nama aksesibel kontrol, dan mobile 390 px. Screenshot masuk ke `e2e/shots/`.
+
+Skrip uji lain di `e2e/` (semua memakai data simulasi, tanpa jaringan):
+- `functional.mjs` (`npm run test:functional`): replay, Pine, order trading, multi-chart, simpan/muat layout, cari simbol, bandingkan simbol, alert terpicu, sumber data, drawing bertahan setelah reload.
+- `smoke-all.mjs` (`npm run test:smoke`): mengklik setiap kontrol tingkat pertama dan melaporkan galat JS atau kontrol tanpa efek.
+- `smoke-l2.mjs` (`npm run test:smoke2`, `FROM=0 TO=25`): sama untuk kontrol di dalam menu, dialog, dan panel. Setiap kelompok butuh beberapa menit; `LIST=1` hanya mencetak nama kontrol.
+Tes hanya membuktikan perilaku pada data simulasi di Chromium; data nyata, lisensi, dan peramban lain tidak tercakup.

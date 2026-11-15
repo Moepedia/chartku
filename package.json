@@ -5,7 +5,10 @@
   "scripts": {
     "build": "node build.mjs",
     "dev": "node build.mjs && npx serve dist",
-    "test:e2e": "node build.mjs && node e2e/run.mjs"
+    "test:e2e": "node build.mjs && node e2e/run.mjs",
+    "test:functional": "node build.mjs && node e2e/functional.mjs",
+    "test:smoke": "node build.mjs && node e2e/smoke-all.mjs",
+    "test:smoke2": "node build.mjs && node e2e/smoke-l2.mjs"
   },
   "engines": {
     "node": ">=18"
