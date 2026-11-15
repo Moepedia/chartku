@@ -1585,15 +1585,24 @@ function renderTfPop() {
   });
   pop.innerHTML = h;
 }
-function closeAll() { $$(".pop").forEach(function (p) { p.hidden = true; }); $$("[aria-expanded]").forEach(function (b) { b.setAttribute("aria-expanded", "false"); }); }
+function closeAll() { $$(".pop").forEach(function (p) { p.hidden = true; fitPop(p); }); $$("[aria-expanded]").forEach(function (b) { b.setAttribute("aria-expanded", "false"); }); }
 function fitPop(pop) {
-  pop.style.left = ""; if (pop.hidden || pop.classList.contains("r")) return;
-  var r = pop.getBoundingClientRect(), vw = document.documentElement.clientWidth;
-  if (r.right > vw - 8) pop.style.left = -Math.min(r.right - (vw - 8), Math.max(0, r.left - 8)) + "px";
+  /* Dropdown memakai position:fixed agar tidak terpotong header (.top overflow-x:auto) atau panel lain. */
+  if (pop.hidden) { pop.style.position = pop.style.left = pop.style.top = pop.style.right = pop.style.bottom = pop.style.maxHeight = ""; return; }
+  var dd = pop.parentElement, a = dd.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight;
+  pop.style.position = "fixed"; pop.style.right = "auto"; pop.style.bottom = "auto"; pop.style.maxHeight = "";
+  var w = pop.offsetWidth, h = pop.offsetHeight, up = pop.id === "gotoPop";
+  var left = pop.classList.contains("r") ? a.right - w : a.left;
+  left = Math.max(8, Math.min(left, vw - w - 8));
+  var room = up ? a.top - 14 : vh - a.bottom - 14;
+  if (h > room) { pop.style.maxHeight = Math.max(160, room) + "px"; h = pop.offsetHeight; }
+  pop.style.left = left + "px";
+  pop.style.top = (up ? Math.max(8, a.top - 6 - h) : a.bottom + 6) + "px";
 }
 function wireDd(btn, pop) {
   btn.addEventListener("click", function (e) { e.stopPropagation(); hideFly(); var open = !pop.hidden; closeAll(); pop.hidden = open; btn.setAttribute("aria-expanded", String(!open)); fitPop(pop); });
 }
+window.addEventListener("resize", function () { $$(".pop").forEach(function (p) { if (!p.hidden) fitPop(p); }); });
 document.addEventListener("click", function (e) { if (!e.target.closest(".pop")) closeAll(); if (!e.target.closest("#ctxm") && Date.now() - ctxAt > 450) hideCtx(); if (!e.target.closest("#fly") && !e.target.closest("#rail")) hideFly(); });
 function buildMenus() {
   var h = ""; TYPES.forEach(function (t) { h += "<label><input type='radio' name='ctype' value='" + t[0] + "'> " + t[1] + "</label>"; });
