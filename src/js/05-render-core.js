@@ -22,6 +22,7 @@ function geom() {
   var n = bars.length, nv = S.replay.on && !S.replay.pick ? Math.min(n, S.replay.idx + 1) : n, bw = S.barW;
   var pw = W - R, ph = H - B, subs = [];
   if (S.ind.rsi) subs.push("rsi"); if (S.ind.macd) subs.push("macd"); if (S.ind.stoch) subs.push("stoch"); if (S.ind.atr) subs.push("atr"); if (S.ind.adx) subs.push("adx"); S.cmpP.forEach(function (id, ci) { subs.push("cmp" + ci); });
+  xPanes().forEach(function (x) { subs.push("x:" + x.u); });
   if (pineOut && !pineOut.error && !pineOut.overlay && (pineOut.plots.length || pineOut.hlines.length)) subs.push("pine");
   var subH = subs.length ? Math.max(60, Math.min(150, ph * 0.2, ph * 0.55 / subs.length)) : 0, mainH = ph - subs.length * subH;
   var vis = pw / bw;
@@ -30,7 +31,7 @@ function geom() {
   var fiAtX = function (x) { return nv - 1 + S.off - (pw - bw / 2 - x) / bw; };
   var iL = Math.max(0, Math.floor(fiAtX(0)) - 1), iR = Math.min(nv - 1, Math.ceil(fiAtX(pw)));
   if (iL > iR) iL = iR;
-  var src = S.type === "ha" ? ha : bars, mode = cmpData.length ? "pct" : S.scale, ref0 = src[iL].c;
+  var src = S.type === "ha" ? ha : (altSrc(S.type) || bars), mode = cmpData.length ? "pct" : S.scale, ref0 = src[iL].c;
   var vOf = function (p, rf) { return mode === "log" ? Math.log(p) : mode === "pct" ? (p / rf - 1) * 100 : p; };
   var vm = function (p) { return vOf(p, ref0); };
   var lineish = ["line", "linem", "step", "area", "baseline"].indexOf(S.type) >= 0, lo = Infinity, hi = -Infinity, i;
@@ -41,6 +42,7 @@ function geom() {
     if (S.ind.sma) arr.push(ind.sma[i]); if (S.ind.ema) arr.push(ind.ema[i]); if (S.ind.vwap) arr.push(ind.vwap[i]);
     if (S.ind.bb) { arr.push(ind.bbU[i]); arr.push(ind.bbL[i]); }
     if (S.ind.st) arr.push(ind.st[i]); if (S.ind.ichi) { arr.push(ind.spA[i]); arr.push(ind.spB[i]); arr.push(ind.tenkan[i]); arr.push(ind.kijun[i]); }
+    xOverlayVals(i, arr);
     arr.forEach(function (v) { if (v != null) { var q = vm(v); if (q < lo) lo = q; if (q > hi) hi = q; } });
     cmpData.forEach(function (c) { var cb = c.bars[i]; if (cb) { var q = vOf(cb.c, c.bars[iL].c); if (q < lo) lo = q; if (q > hi) hi = q; } });
   }
@@ -107,11 +109,20 @@ function drawMain(C) {
   }
 
   var src = G.src, ty = S.type;
-  if (ty === "candles" || ty === "hollow" || ty === "ha" || ty === "vcandles") {
+  if (ty === "kagi") {
+    ctx.lineJoin = "miter"; var kPrev = null;
+    for (i = G.iL; i <= G.iR; i++) { b = src[i]; var kx = X(i), ky = G.Yp(b.c); ctx.strokeStyle = b.d > 0 ? C.up : C.down; ctx.lineWidth = b.d > 0 ? 3 : 1.5; ctx.beginPath(); if (kPrev) { ctx.moveTo(kPrev.x, kPrev.y); ctx.lineTo(kx, kPrev.y); ctx.lineTo(kx, ky); } else ctx.moveTo(kx, ky); ctx.stroke(); kPrev = { x: kx, y: ky }; }
+    ctx.lineWidth = 1;
+  } else if (ty === "pnf") {
+    var gs = Math.max(3, Math.min(bw * 0.9, Math.abs(G.Yp(src[G.iL].l) - G.Yp(src[G.iL].h)) * 0.9 || 8));
+    ctx.lineWidth = 1.4;
+    for (i = G.iL; i <= G.iR; i++) { b = src[i]; var px = X(i), py = (G.Yp(b.l) + G.Yp(b.h)) / 2, hs = gs / 2; ctx.strokeStyle = b.d > 0 ? C.up : C.down; ctx.beginPath(); if (b.d > 0) { ctx.moveTo(px - hs, py - hs); ctx.lineTo(px + hs, py + hs); ctx.moveTo(px + hs, py - hs); ctx.lineTo(px - hs, py + hs); } else ctx.ellipse(px, py, hs, hs, 0, 0, 6.2832); ctx.stroke(); }
+    ctx.lineWidth = 1;
+  } else if (ty === "candles" || ty === "hollow" || ty === "ha" || ty === "vcandles" || ty === "renko" || ty === "range" || ty === "lbreak") {
     var cw0 = Math.max(1, Math.floor(bw * 0.7)), cw = cw0, vmax = 0;
     if (ty === "vcandles") for (i = G.iL; i <= G.iR; i++) vmax = Math.max(vmax, src[i].v || 0);
     for (i = G.iL; i <= G.iR; i++) {
-      b = src[i]; if (ty === "vcandles") cw = Math.max(1, Math.floor(bw * (0.2 + 0.75 * (vmax ? (b.v || 0) / vmax : 1)))); var x = X(i), Q = S.sty, up = Q.pc && i > 0 ? b.c >= src[i - 1].c : b.c >= b.o;
+      b = src[i]; if (b.rep) continue; if (ty === "vcandles") cw = Math.max(1, Math.floor(bw * (0.2 + 0.75 * (vmax ? (b.v || 0) / vmax : 1)))); var x = X(i), Q = S.sty, up = Q.pc && i > 0 ? b.c >= src[i - 1].c : b.c >= b.o;
       var bc = up ? (Q.bu || C.up) : (Q.bd || C.down), oc = up ? (Q.ou || C.up) : (Q.od || C.down), wc = up ? (Q.wu || C.up) : (Q.wd || C.down);
       if (Q.wick !== false) { ctx.strokeStyle = wc; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, G.Yp(b.h)); ctx.lineTo(Math.round(x) + 0.5, G.Yp(b.l)); ctx.stroke(); }
       var yt = G.Yp(Math.max(b.o, b.c)), yb = G.Yp(Math.min(b.o, b.c)), hh = Math.max(1, yb - yt);
@@ -217,6 +228,8 @@ function drawMain(C) {
       ctx.fillText(e2[2], Math.max(10, Math.min(pw - 10, ex)), ey + (e2[2] === "hi" ? -5 : 5));
     });
   }
+
+  drawXOverlay(C, function (a, c) { line(a, c); }, function (w) { LW = w; });
 
   /* Pine Script overlay plots */
   if (pineOut && pineOut.overlay && !pineOut.error) {

@@ -331,3 +331,32 @@ body.embed .work, body.embed .work.panel-closed { grid-template-columns:40px min
   .rbar > * { min-width:0; }
   #tzClock { white-space:nowrap; margin-left:auto; padding:0 4px; }
 }
+
+/* dialog indikator (gaya TradingView) */
+.idbox { width:min(760px,100%); }
+.idbox .hd b { font-size:15px; }
+.idbd { display:grid; grid-template-columns:190px minmax(0,1fr); height:min(460px,62vh); }
+.idl { display:flex; flex-direction:column; gap:1px; padding:6px; border-right:1px solid var(--line); overflow-y:auto; }
+.idl button { text-align:left; border:0; background:transparent; color:var(--ink); padding:8px 10px; border-radius:6px; font-size:13px; }
+.idl button:hover { background:var(--hover); }
+.idl button[aria-pressed="true"] { background:var(--accent-soft); color:var(--accent); font-weight:600; }
+.idlist { list-style:none; margin:0; padding:4px; overflow-y:auto; max-height:none !important; display:block !important; }
+.idrow { display:flex; align-items:center; }
+.idpick { width:100%; border:0; background:transparent; display:flex !important; grid-template-columns:none !important; align-items:center; gap:10px; text-align:left; padding:9px 10px; border-radius:6px; color:var(--ink); font-size:13px; }
+.idpick:hover { background:var(--hover); }
+.idpick .nm, .idrow.act .nm { flex:1; min-width:0; }
+.idpick .tg { color:var(--muted); font-size:11px; }
+.idpick .on { color:var(--accent); font-size:11px; font-weight:600; }
+.idrow.act { padding:8px 10px; gap:8px; font-size:13px; }
+.idacts { display:flex; gap:2px; }
+.idacts button { border:0; background:transparent; color:var(--muted); width:28px; height:28px; border-radius:6px; font-size:16px; }
+.idacts button:hover { background:var(--hover); color:var(--ink); }
+.idnone { padding:18px 12px; color:var(--muted); font-size:13px; }
+#idq { flex:1; min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:8px 10px; font-size:14px; color:var(--ink); }
+.xsbox { width:min(380px,100%); }
+.xsb { padding:10px 14px; display:grid; gap:8px; max-height:50vh; overflow-y:auto; }
+.xs { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px; }
+.xs input[type=number] { width:90px; background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:5px 7px; color:var(--ink); }
+.xs input[type=color] { width:38px; height:24px; padding:0; border:0; background:none; }
+.xsft { border-top:1px solid var(--line); border-bottom:0 !important; }
+@media (max-width:640px) { .idbd { grid-template-columns:1fr; height:70vh; } .idl { flex-direction:row; overflow-x:auto; border-right:0; border-bottom:1px solid var(--line); } .idl button { white-space:nowrap; } }

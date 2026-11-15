@@ -166,7 +166,7 @@ function buildCmp() {
 }
 var pendSpan = 0;
 function applySpan(sec) { var last = bars[bars.length - 1].t, i0 = bars.length - 1; while (i0 > 0 && bars[i0 - 1].t >= last - sec) i0--; S.barW = Math.max(1.5, Math.min(40, (W - R - 12) / (bars.length - i0 + 3))); S.off = 3; }
-function afterLoad() { recalc(); genEvents(); renderEvents(); buildCmp(); resetView(); if (pendSpan && bars.length) { applySpan(pendSpan); pendSpan = 0; } legendHtml = ""; wrap.style.opacity = ""; syncUI(); header(); renderInfo(); draw(); }
+function afterLoad() { recalc(); genEvents(); renderEvents(); buildCmp(); resetView(); if (pendSpan && bars.length) { applySpan(pendSpan); pendSpan = 0; } legendHtml = null; wrap.style.opacity = ""; syncUI(); header(); renderInfo(); draw(); }
 function loadData() {
   var seq = ++loadSeq, sym = S.sym, tf = S.tf;
   closeWS(); setFeed("Loading " + sym.label, "wait");
@@ -253,7 +253,7 @@ function setLive(s, p) {
   var prev = live[s.id]; live[s.id] = p; ready[s.id] = true;
   S.alerts.forEach(function (a) {
     if (a.sym === s.id && a.active && prev != null && ((prev < a.price && p >= a.price) || (prev > a.price && p <= a.price))) {
-      a.active = false; toast("Alert: " + s.label + " crossed " + fmt(a.price, s.dec)); renderAlerts(); save();
+      a.active = false; toast("Alert: " + s.label + " crossed " + fmt(a.price, s.dec)); if (S.sty.aSnd !== false) { try { var ac = new (window.AudioContext || window.webkitAudioContext)(), os = ac.createOscillator(), gn = ac.createGain(); os.frequency.value = 880; gn.gain.value = 0.05; os.connect(gn); gn.connect(ac.destination); os.start(); os.stop(ac.currentTime + 0.25); } catch (e) { /* audio unavailable */ } } renderAlerts(); save();
     }
   });
 }

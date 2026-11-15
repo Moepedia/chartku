@@ -58,7 +58,7 @@ function tfByKey(k) {
 }
 function tfLabel(t) { return t.n + " " + TUN[t.u][t.n === 1 ? 0 : 1]; }
 var TF_D = tfByKey("1D"), TF_H = tfByKey("1H");
-var TYPES = [["candles", "Candles"], ["hollow", "Hollow candles"], ["vcandles", "Volume candles"], ["bars", "OHLC bars"], ["line", "Line"], ["linem", "Line with markers"], ["step", "Step line"], ["area", "Area"], ["hlcarea", "HLC area"], ["baseline", "Baseline"], ["columns", "Columns"], ["highlow", "High-low"], ["ha", "Heikin Ashi"]];
+var TYPES = [["candles", "Candles"], ["hollow", "Hollow candles"], ["vcandles", "Volume candles"], ["bars", "OHLC bars"], ["line", "Line"], ["linem", "Line with markers"], ["step", "Step line"], ["area", "Area"], ["hlcarea", "HLC area"], ["baseline", "Baseline"], ["columns", "Columns"], ["highlow", "High-low"], ["ha", "Heikin Ashi"], ["renko", "Renko"], ["lbreak", "Line break"], ["kagi", "Kagi"], ["pnf", "Point & figure"], ["range", "Range"]];
 var INDS = [["sma", "SMA 20"], ["ema", "EMA 50"], ["bb", "Bollinger Bands 20, 2"], ["vwap", "VWAP"], ["vol", "Volume"], ["rsi", "RSI 14"], ["macd", "MACD 12 26 9"], ["stoch", "Stochastic"], ["atr", "ATR"], ["adx", "ADX / DMI"], ["st", "Supertrend x3"], ["ichi", "Ichimoku 9 26 52"]];
 var LNAME = { sma: "SMA", ema: "EMA", bb: "Bollinger Bands", rsi: "RSI", stoch: "Stochastic", atr: "ATR", adx: "ADX / DMI", st: "Supertrend x3" };
 var LENK = { sma: "sma", ema: "ema", bb: "bb", rsi: "rsi", stoch: "stoch", atr: "atr", adx: "adx", st: "st" };
@@ -80,7 +80,7 @@ function save() {
   clearTimeout(saveT);
   saveT = setTimeout(function () {
     try {
-      localStorage.setItem(KEY, JSON.stringify({ sym: S.sym.id, tf: S.tf.k, type: S.type, scale: S.scale, invert: S.invert, lockScale: S.lockScale, hilo: S.hilo, events: S.events, ind: S.ind, cmp: S.cmp, cmpP: S.cmpP, cmpT: S.cmpT, colOv: S.colOv, iw: S.iw, ihide: S.ihide, sty: S.sty, magnet: S.magnet, grid: S.grid, tz: S.tz, src: srcPref, len: S.len, ctf: CTF.map(function (t) { return t.k; }), ftf: S.ftf, gcur: S.gcur, keep: S.keep, emojiCh: S.emojiCh,
+      localStorage.setItem(KEY, JSON.stringify({ sym: S.sym.id, tf: S.tf.k, type: S.type, scale: S.scale, invert: S.invert, lockScale: S.lockScale, hilo: S.hilo, events: S.events, ind: S.ind, xi: S.xi, cmp: S.cmp, cmpP: S.cmpP, cmpT: S.cmpT, colOv: S.colOv, iw: S.iw, ihide: S.ihide, sty: S.sty, magnet: S.magnet, grid: S.grid, tz: S.tz, src: srcPref, len: S.len, ctf: CTF.map(function (t) { return t.k; }), ftf: S.ftf, gcur: S.gcur, keep: S.keep, emojiCh: S.emojiCh,
         drawings: S.drawings, alerts: S.alerts, watch: S.watch, acc: S.acc, pine: S.pine, theme: document.documentElement.getAttribute("data-theme") || "" }));
     } catch (e) { /* storage unavailable */ }
   }, 300);
@@ -258,9 +258,243 @@ function recalc() {
     var c = (b.o + b.h + b.l + b.c) / 4, o = k === 0 ? (b.o + b.c) / 2 : (ha[k - 1].o + ha[k - 1].c) / 2;
     ha.push({ t: b.t, o: o, c: c, h: Math.max(b.h, o, c), l: Math.min(b.l, o, c), v: b.v });
   });
+  calcAlt();
+  calcX();
   pineCompute();
 }
 
+var XPAL = ["#2962ff", "#ff6d00", "#e91e63", "#26a69a", "#ab47bc", "#00bcd4"];
+var XIND = {}, XORDER = [], XR = {}, xUid = 0;
+function xdef(id, name, grp, ov, params, calc, opt) { XIND[id] = { id: id, n: name, g: grp, ov: ov, p: params, calc: calc, o: opt || {} }; XORDER.push(id); }
+
+/* ---- helper numerik (null-aware) ---- */
+function xn(f) { var o = [], i; for (i = 0; i < bars.length; i++) o.push(f(bars[i], i, bars)); return o; }
+function xsum(a, p) { var o = [], s = 0, c = 0, i; for (i = 0; i < a.length; i++) { var v = a[i]; if (v == null) { o.push(null); s = 0; c = 0; continue; } s += v; c++; if (c > p) s -= a[i - p]; o.push(c >= p ? s : null); } return o; }
+function xsma(a, p) { return xsum(a, p).map(function (v) { return v == null ? null : v / p; }); }
+function xroll(a, p, mx) { var o = [], i, j, m, ok; for (i = 0; i < a.length; i++) { if (i < p - 1) { o.push(null); continue; } m = mx ? -Infinity : Infinity; ok = true; for (j = i - p + 1; j <= i; j++) { if (a[j] == null) { ok = false; break; } if (mx ? a[j] > m : a[j] < m) m = a[j]; } o.push(ok ? m : null); } return o; }
+function xhh(a, p) { return xroll(a, p, true); }
+function xll(a, p) { return xroll(a, p, false); }
+function xstd(a, p) { var m = xsma(a, p), o = [], i, j, s; for (i = 0; i < a.length; i++) { if (m[i] == null) { o.push(null); continue; } s = 0; for (j = i - p + 1; j <= i; j++) s += (a[j] - m[i]) * (a[j] - m[i]); o.push(Math.sqrt(s / p)); } return o; }
+function xrma(a, p) { var o = [], e = null, c = 0, s = 0, i; for (i = 0; i < a.length; i++) { var v = a[i]; if (v == null) { o.push(null); continue; } c++; if (c < p) { s += v; o.push(null); } else if (c === p) { s += v; e = s / p; o.push(e); } else { e = (e * (p - 1) + v) / p; o.push(e); } } return o; }
+function xwma(a, p) { var o = [], i, j, s, w, d = p * (p + 1) / 2, ok; for (i = 0; i < a.length; i++) { if (i < p - 1) { o.push(null); continue; } s = 0; ok = true; for (j = 0; j < p; j++) { var v = a[i - p + 1 + j]; if (v == null) { ok = false; break; } s += v * (j + 1); } o.push(ok ? s / d : null); } return o; }
+function xsub(a, b) { return a.map(function (v, i) { return v == null || b[i] == null ? null : v - b[i]; }); }
+function xadd(a, b) { return a.map(function (v, i) { return v == null || b[i] == null ? null : v + b[i]; }); }
+function xmul(a, k) { return a.map(function (v) { return v == null ? null : v * k; }); }
+function xlag(a, n) { return a.map(function (v, i) { return i - n >= 0 ? a[i - n] : null; }); }
+function xcum(a) { var s = 0; return a.map(function (v) { s += v || 0; return s; }); }
+function xrsi(a, p) { var up = [null], dn = [null], i; for (i = 1; i < a.length; i++) { var ch = a[i] - a[i - 1]; up.push(Math.max(ch, 0)); dn.push(Math.max(-ch, 0)); } var u = xrma(up, p), d = xrma(dn, p); return u.map(function (x, i2) { return x == null ? null : 100 - 100 / (1 + x / ((d[i2]) || 1e-9)); }); }
+function xtr() { return xn(function (b, i, a) { return i === 0 ? b.h - b.l : Math.max(b.h - b.l, Math.abs(b.h - a[i - 1].c), Math.abs(b.l - a[i - 1].c)); }); }
+var XC = function () { return xn(function (b) { return b.c; }); };
+var XV = function () { return xn(function (b) { return b.v || 1; }); };
+var XTP = function () { return xn(function (b) { return (b.h + b.l + b.c) / 3; }); };
+function xl(name, d, i, t) { return { n: name, d: d, c: XPAL[i % XPAL.length], t: t || "line", w: 1.5 }; }
+
+/* ---- OVERLAY ---- */
+xdef("wma", "Weighted Moving Average", "trend", true, { len: 20 }, function (P) { return { plots: [xl("WMA", xwma(XC(), P.len), 0)] }; });
+xdef("hma", "Hull Moving Average", "trend", true, { len: 20 }, function (P) { var c = XC(), h = Math.max(1, Math.floor(P.len / 2)), s = Math.max(1, Math.round(Math.sqrt(P.len))); return { plots: [xl("HMA", xwma(xsub(xmul(xwma(c, h), 2), xwma(c, P.len)), s), 1)] }; });
+xdef("dema", "Double EMA", "trend", true, { len: 20 }, function (P) { var e1 = emaOf(XC(), P.len), e2 = emaOf(e1, P.len); return { plots: [xl("DEMA", xsub(xmul(e1, 2), e2), 2)] }; });
+xdef("tema", "Triple EMA", "trend", true, { len: 20 }, function (P) { var e1 = emaOf(XC(), P.len), e2 = emaOf(e1, P.len), e3 = emaOf(e2, P.len); return { plots: [xl("TEMA", xadd(xsub(xmul(e1, 3), xmul(e2, 3)), e3), 3)] }; });
+xdef("vwma", "Volume Weighted MA", "trend", true, { len: 20 }, function (P) { var c = XC(), v = XV(), cv = c.map(function (x, i) { return x * v[i]; }), a = xsum(cv, P.len), b = xsum(v, P.len); return { plots: [xl("VWMA", a.map(function (x, i) { return x == null ? null : x / b[i]; }), 4)] }; });
+xdef("smma", "Smoothed MA (RMA)", "trend", true, { len: 20 }, function (P) { return { plots: [xl("SMMA", xrma(XC(), P.len), 5)] }; });
+xdef("lsma", "Least Squares MA", "trend", true, { len: 25 }, function (P) {
+  var c = XC(), n = P.len, o = [], i, j; for (i = 0; i < c.length; i++) { if (i < n - 1) { o.push(null); continue; } var sx = 0, sy = 0, sxy = 0, sxx = 0; for (j = 0; j < n; j++) { var y = c[i - n + 1 + j]; sx += j; sy += y; sxy += j * y; sxx += j * j; } var sl = (n * sxy - sx * sy) / ((n * sxx - sx * sx) || 1), ic = (sy - sl * sx) / n; o.push(ic + sl * (n - 1)); }
+  return { plots: [xl("LSMA", o, 0)] };
+});
+xdef("macross", "Moving Average Cross", "trend", true, { fast: 9, slow: 21 }, function (P) { var c = XC(); return { plots: [xl("Fast", smaOf(c, P.fast), 0), xl("Slow", smaOf(c, P.slow), 1)] }; });
+xdef("ribbon", "Moving Average Ribbon", "trend", true, { len: 20 }, function (P) { var c = XC(), o = [], k; for (k = 0; k < 6; k++) o.push(xl("MA" + (P.len + k * 10), emaOf(c, P.len + k * 10), k)); return { plots: o }; });
+xdef("donch", "Donchian Channels", "vola", true, { len: 20 }, function (P) { var h = xn(function (b) { return b.h; }), l = xn(function (b) { return b.l; }), u = xhh(h, P.len), d = xll(l, P.len), m = u.map(function (x, i) { return x == null ? null : (x + d[i]) / 2; }); return { plots: [xl("Upper", u, 0), xl("Basis", m, 1), xl("Lower", d, 0)], band: [0, 2] }; });
+xdef("keltner", "Keltner Channels", "vola", true, { len: 20, mult: 2 }, function (P) { var m = emaOf(XC(), P.len), a = atrOf(P.len); var u = m.map(function (x, i) { return x == null || a[i] == null ? null : x + P.mult * a[i]; }), d = m.map(function (x, i) { return x == null || a[i] == null ? null : x - P.mult * a[i]; }); return { plots: [xl("Upper", u, 0), xl("Basis", m, 1), xl("Lower", d, 0)], band: [0, 2] }; });
+xdef("env", "Envelope", "vola", true, { len: 20, pct: 10 }, function (P) { var m = smaOf(XC(), P.len), k = P.pct / 100; return { plots: [xl("Upper", xmul(m, 1 + k), 0), xl("Basis", m, 1), xl("Lower", xmul(m, 1 - k), 0)], band: [0, 2] }; });
+xdef("psar", "Parabolic SAR", "trend", true, { step: 0.02, max: 0.2 }, function (P) {
+  var n = bars.length, o = [], i, up = true, af = P.step, ep, sar; if (n < 2) return { plots: [xl("SAR", [], 3, "dots")] };
+  sar = bars[0].l; ep = bars[0].h; o.push(null);
+  for (i = 1; i < n; i++) {
+    var b = bars[i]; sar = sar + af * (ep - sar);
+    if (up) { sar = Math.min(sar, bars[i - 1].l, i > 1 ? bars[i - 2].l : bars[i - 1].l); if (b.l < sar) { up = false; sar = ep; ep = b.l; af = P.step; } else if (b.h > ep) { ep = b.h; af = Math.min(af + P.step, P.max); } }
+    else { sar = Math.max(sar, bars[i - 1].h, i > 1 ? bars[i - 2].h : bars[i - 1].h); if (b.h > sar) { up = true; sar = ep; ep = b.h; af = P.step; } else if (b.l < ep) { ep = b.l; af = Math.min(af + P.step, P.max); } }
+    o.push(sar);
+  }
+  return { plots: [xl("SAR", o, 3, "dots")] };
+});
+xdef("alligator", "Williams Alligator", "trend", true, { jaw: 13, teeth: 8, lips: 5 }, function (P) { var hl = xn(function (b) { return (b.h + b.l) / 2; }); return { plots: [{ n: "Jaw", d: xlag(xrma(hl, P.jaw), 8), c: "#2962ff", t: "line", w: 1.5 }, { n: "Teeth", d: xlag(xrma(hl, P.teeth), 5), c: "#e91e63", t: "line", w: 1.5 }, { n: "Lips", d: xlag(xrma(hl, P.lips), 3), c: "#26a69a", t: "line", w: 1.5 }] }; });
+xdef("median", "Median Price", "trend", true, {}, function () { return { plots: [xl("Median", xn(function (b) { return (b.h + b.l) / 2; }), 4)] }; });
+
+/* ---- SUB-PANE: momentum / osilator ---- */
+xdef("cci", "Commodity Channel Index", "osc", false, { len: 20 }, function (P) { var tp = XTP(), m = xsma(tp, P.len), o = [], i, j, s; for (i = 0; i < tp.length; i++) { if (m[i] == null) { o.push(null); continue; } s = 0; for (j = i - P.len + 1; j <= i; j++) s += Math.abs(tp[j] - m[i]); s /= P.len; o.push(s ? (tp[i] - m[i]) / (0.015 * s) : 0); } return { plots: [xl("CCI", o, 0)], hl: [-100, 0, 100] }; });
+xdef("willr", "Williams %R", "osc", false, { len: 14 }, function (P) { var h = xhh(xn(function (b) { return b.h; }), P.len), l = xll(xn(function (b) { return b.l; }), P.len); return { plots: [xl("%R", xn(function (b, i) { return h[i] == null ? null : (h[i] === l[i] ? -50 : (h[i] - b.c) / (h[i] - l[i]) * -100); }), 4)], hl: [-80, -20], rng: [-100, 0] }; });
+xdef("mfi", "Money Flow Index", "osc", false, { len: 14 }, function (P) { var tp = XTP(), v = XV(), pos = [], neg = [], i; for (i = 0; i < tp.length; i++) { var f = tp[i] * v[i], up = i > 0 && tp[i] > tp[i - 1], dn = i > 0 && tp[i] < tp[i - 1]; pos.push(up ? f : 0); neg.push(dn ? f : 0); } var a = xsum(pos, P.len), b = xsum(neg, P.len); return { plots: [xl("MFI", a.map(function (x, k) { return x == null ? null : 100 - 100 / (1 + x / (b[k] || 1e-9)); }), 3)], hl: [20, 80], rng: [0, 100] }; });
+xdef("roc", "Rate of Change", "osc", false, { len: 9 }, function (P) { var c = XC(); return { plots: [xl("ROC", c.map(function (v, i) { return i >= P.len ? (v / c[i - P.len] - 1) * 100 : null; }), 0)], hl: [0] }; });
+xdef("mom", "Momentum", "osc", false, { len: 10 }, function (P) { var c = XC(); return { plots: [xl("MOM", c.map(function (v, i) { return i >= P.len ? v - c[i - P.len] : null; }), 0)], hl: [0] }; });
+xdef("aroon", "Aroon", "osc", false, { len: 14 }, function (P) {
+  var n = P.len, up = [], dn = [], i, j; for (i = 0; i < bars.length; i++) { if (i < n) { up.push(null); dn.push(null); continue; } var ih = i - n, il = i - n; for (j = i - n; j <= i; j++) { if (bars[j].h >= bars[ih].h) ih = j; if (bars[j].l <= bars[il].l) il = j; } up.push(100 * (ih - (i - n)) / n); dn.push(100 * (il - (i - n)) / n); }
+  return { plots: [xl("Up", up, 3), xl("Down", dn, 2)], hl: [50], rng: [0, 100] };
+});
+xdef("aroonosc", "Aroon Oscillator", "osc", false, { len: 14 }, function (P) { var r = XIND.aroon.calc(P).plots; return { plots: [xl("Aroon Osc", xsub(r[0].d, r[1].d), 0, "hist")], hl: [0] }; });
+xdef("ao", "Awesome Oscillator", "osc", false, {}, function () { var hl = xn(function (b) { return (b.h + b.l) / 2; }), d = xsub(xsma(hl, 5), xsma(hl, 34)), cl = d.map(function (v, i) { return v == null ? null : (i > 0 && d[i - 1] != null && v < d[i - 1] ? "#ef5350" : "#26a69a"); }); return { plots: [{ n: "AO", d: d, c: "#26a69a", t: "hist", w: 1, cols: cl }], hl: [0] }; });
+xdef("trix", "TRIX", "osc", false, { len: 15 }, function (P) { var l = xn(function (b) { return Math.log(b.c); }), e = emaOf(emaOf(emaOf(l, P.len), P.len), P.len); return { plots: [xl("TRIX", e.map(function (v, i) { return v == null || i < 1 || e[i - 1] == null ? null : (v - e[i - 1]) * 10000; }), 1)], hl: [0] }; });
+xdef("cmo", "Chande Momentum Oscillator", "osc", false, { len: 9 }, function (P) { var c = XC(), u = [], d = [], i; for (i = 0; i < c.length; i++) { var ch = i ? c[i] - c[i - 1] : 0; u.push(Math.max(ch, 0)); d.push(Math.max(-ch, 0)); } var a = xsum(u, P.len), b = xsum(d, P.len); return { plots: [xl("CMO", a.map(function (x, k) { return x == null ? null : 100 * (x - b[k]) / ((x + b[k]) || 1e-9); }), 4)], hl: [-50, 0, 50], rng: [-100, 100] }; });
+xdef("dpo", "Detrended Price Oscillator", "osc", false, { len: 21 }, function (P) { var c = XC(), m = xsma(c, P.len), sh = Math.floor(P.len / 2) + 1; return { plots: [xl("DPO", c.map(function (v, i) { return m[i] == null || i - sh < 0 ? null : c[i - sh] - m[i]; }), 0)], hl: [0] }; });
+xdef("uo", "Ultimate Oscillator", "osc", false, { a: 7, b: 14, c: 28 }, function (P) { var bp = xn(function (b, i, a) { return b.c - Math.min(b.l, i ? a[i - 1].c : b.l); }), tr = xn(function (b, i, a) { return Math.max(b.h, i ? a[i - 1].c : b.h) - Math.min(b.l, i ? a[i - 1].c : b.l); }), k = function (p) { var s = xsum(bp, p), t = xsum(tr, p); return s.map(function (x, i) { return x == null ? null : x / (t[i] || 1e-9); }); }, a = k(P.a), b = k(P.b), c = k(P.c); return { plots: [xl("UO", a.map(function (x, i) { return x == null || b[i] == null || c[i] == null ? null : 100 * (4 * x + 2 * b[i] + c[i]) / 7; }), 2)], hl: [30, 70], rng: [0, 100] }; });
+xdef("stochrsi", "Stochastic RSI", "osc", false, { len: 14, k: 3, d: 3 }, function (P) { var r = xrsi(XC(), P.len), h = xhh(r, P.len), l = xll(r, P.len), raw = r.map(function (v, i) { return h[i] == null ? null : (h[i] === l[i] ? 50 : (v - l[i]) / (h[i] - l[i]) * 100); }), k = smaN(raw, P.k), d = smaN(k, P.d); return { plots: [xl("%K", k, 0), xl("%D", d, 1)], hl: [20, 80], rng: [0, 100] }; });
+xdef("tsi", "True Strength Index", "osc", false, { a: 25, b: 13 }, function (P) { var c = XC(), m = c.map(function (v, i) { return i ? v - c[i - 1] : 0; }), am = m.map(Math.abs), n = emaOf(emaOf(m, P.a), P.b), d = emaOf(emaOf(am, P.a), P.b); return { plots: [xl("TSI", n.map(function (x, i) { return x == null || d[i] == null ? null : 100 * x / (d[i] || 1e-9); }), 0)], hl: [0] }; });
+xdef("coppock", "Coppock Curve", "osc", false, { wma: 10, a: 14, b: 11 }, function (P) { var c = XC(), r = function (n) { return c.map(function (v, i) { return i >= n ? (v / c[i - n] - 1) * 100 : null; }); }; return { plots: [xl("Coppock", xwma(xadd(r(P.a), r(P.b)), P.wma), 1, "hist")], hl: [0] }; });
+xdef("kst", "Know Sure Thing", "osc", false, {}, function () { var c = XC(), r = function (n, s) { return smaN(c.map(function (v, i) { return i >= n ? (v / c[i - n] - 1) * 100 : null; }), s); }, k = xadd(xadd(r(10, 10), xmul(r(15, 10), 2)), xadd(xmul(r(20, 10), 3), xmul(r(30, 15), 4))); return { plots: [xl("KST", k, 0), xl("Signal", smaN(k, 9), 1)], hl: [0] }; });
+xdef("ppo", "Price Oscillator (PPO)", "osc", false, { fast: 12, slow: 26, sig: 9 }, function (P) { var c = XC(), f = emaOf(c, P.fast), s = emaOf(c, P.slow), p = f.map(function (v, i) { return v == null || s[i] == null ? null : (v - s[i]) / s[i] * 100; }), g = emaOf(p, P.sig); return { plots: [xl("Hist", xsub(p, g), 3, "hist"), xl("PPO", p, 0), xl("Signal", g, 1)], hl: [0] }; });
+xdef("bbp", "Bollinger %B", "osc", false, { len: 20, mult: 2 }, function (P) { var c = XC(), m = xsma(c, P.len), s = xstd(c, P.len); return { plots: [xl("%B", c.map(function (v, i) { return m[i] == null ? null : (v - (m[i] - P.mult * s[i])) / ((2 * P.mult * s[i]) || 1e-9); }), 0)], hl: [0, 0.5, 1] }; });
+xdef("bbw", "Bollinger BandWidth", "vola", false, { len: 20, mult: 2 }, function (P) { var c = XC(), m = xsma(c, P.len), s = xstd(c, P.len); return { plots: [xl("BBW", c.map(function (v, i) { return m[i] == null ? null : 2 * P.mult * s[i] / m[i]; }), 0)] }; });
+xdef("stdev", "Standard Deviation", "vola", false, { len: 20 }, function (P) { return { plots: [xl("StdDev", xstd(XC(), P.len), 2)] }; });
+xdef("hv", "Historical Volatility", "vola", false, { len: 10 }, function (P) { var c = XC(), r = c.map(function (v, i) { return i ? Math.log(v / c[i - 1]) : null; }); r[0] = null; var s = []; var i; for (i = 0; i < r.length; i++) { if (i < P.len) { s.push(null); continue; } var m = 0, j; for (j = i - P.len + 1; j <= i; j++) m += r[j]; m /= P.len; var v2 = 0; for (j = i - P.len + 1; j <= i; j++) v2 += (r[j] - m) * (r[j] - m); s.push(Math.sqrt(v2 / (P.len - 1 || 1)) * Math.sqrt(252) * 100); } return { plots: [xl("HV", s, 1)] }; });
+xdef("chop", "Choppiness Index", "vola", false, { len: 14 }, function (P) { var tr = xtr(), s = xsum(tr, P.len), h = xhh(xn(function (b) { return b.h; }), P.len), l = xll(xn(function (b) { return b.l; }), P.len); return { plots: [xl("CHOP", s.map(function (x, i) { return x == null || h[i] == null || h[i] === l[i] ? null : 100 * Math.log10(x / (h[i] - l[i])) / Math.log10(P.len); }), 4)], hl: [38.2, 61.8], rng: [0, 100] }; });
+xdef("mass", "Mass Index", "vola", false, { len: 25 }, function (P) { var r = xn(function (b) { return b.h - b.l; }), e1 = emaOf(r, 9), e2 = emaOf(e1, 9), q = e1.map(function (x, i) { return x == null || e2[i] == null ? null : x / (e2[i] || 1e-9); }); return { plots: [xl("Mass", xsum(q, P.len), 2)], hl: [27, 26.5] }; });
+xdef("vortex", "Vortex Indicator", "osc", false, { len: 14 }, function (P) { var vp = xn(function (b, i, a) { return i ? Math.abs(b.h - a[i - 1].l) : 0; }), vm = xn(function (b, i, a) { return i ? Math.abs(b.l - a[i - 1].h) : 0; }), tr = xsum(xtr(), P.len), p = xsum(vp, P.len), m = xsum(vm, P.len); return { plots: [xl("VI+", p.map(function (x, i) { return x == null ? null : x / (tr[i] || 1e-9); }), 3), xl("VI-", m.map(function (x, i) { return x == null ? null : x / (tr[i] || 1e-9); }), 2)], hl: [1] }; });
+xdef("bop", "Balance of Power", "osc", false, {}, function () { return { plots: [xl("BOP", xn(function (b) { return b.h === b.l ? 0 : (b.c - b.o) / (b.h - b.l); }), 4)], hl: [0] }; });
+xdef("bbpwr", "Bull Bear Power", "osc", false, { len: 13 }, function (P) { var e = emaOf(XC(), P.len); return { plots: [xl("Bull", xn(function (b, i) { return e[i] == null ? null : b.h - e[i]; }), 3, "hist"), xl("Bear", xn(function (b, i) { return e[i] == null ? null : b.l - e[i]; }), 2, "hist")], hl: [0] }; });
+
+/* ---- SUB-PANE: volume ---- */
+xdef("obv", "On Balance Volume", "vol", false, {}, function () { var c = XC(), v = XV(), s = 0; return { plots: [xl("OBV", c.map(function (x, i) { if (i) s += x > c[i - 1] ? v[i] : x < c[i - 1] ? -v[i] : 0; return s; }), 0)] }; });
+xdef("adl", "Accumulation/Distribution", "vol", false, {}, function () { return { plots: [xl("A/D", xcum(xn(function (b) { return b.h === b.l ? 0 : ((b.c - b.l) - (b.h - b.c)) / (b.h - b.l) * (b.v || 1); })), 1)] }; });
+xdef("cmf", "Chaikin Money Flow", "vol", false, { len: 20 }, function (P) { var m = xn(function (b) { return b.h === b.l ? 0 : ((b.c - b.l) - (b.h - b.c)) / (b.h - b.l) * (b.v || 1); }), a = xsum(m, P.len), v = xsum(XV(), P.len); return { plots: [xl("CMF", a.map(function (x, i) { return x == null ? null : x / (v[i] || 1); }), 3, "hist")], hl: [0] }; });
+xdef("chaikinosc", "Chaikin Oscillator", "vol", false, { fast: 3, slow: 10 }, function (P) { var a = xcum(xn(function (b) { return b.h === b.l ? 0 : ((b.c - b.l) - (b.h - b.c)) / (b.h - b.l) * (b.v || 1); })); return { plots: [xl("ChaikinOsc", xsub(emaOf(a, P.fast), emaOf(a, P.slow)), 0)], hl: [0] }; });
+xdef("force", "Force Index", "vol", false, { len: 13 }, function (P) { var c = XC(), v = XV(); return { plots: [xl("Force", emaOf(c.map(function (x, i) { return i ? (x - c[i - 1]) * v[i] : 0; }), P.len), 2, "hist")], hl: [0] }; });
+xdef("pvt", "Price Volume Trend", "vol", false, {}, function () { var c = XC(), v = XV(), s = 0; return { plots: [xl("PVT", c.map(function (x, i) { if (i) s += (x - c[i - 1]) / c[i - 1] * v[i]; return s; }), 5)] }; });
+xdef("volosc", "Volume Oscillator", "vol", false, { fast: 5, slow: 10 }, function (P) { var v = XV(), f = emaOf(v, P.fast), s = emaOf(v, P.slow); return { plots: [xl("VolOsc", f.map(function (x, i) { return x == null || s[i] == null ? null : 100 * (x - s[i]) / (s[i] || 1); }), 4, "hist")], hl: [0] }; });
+xdef("eom", "Ease of Movement", "vol", false, { len: 14 }, function (P) { var e = xn(function (b, i, a) { var hl = b.h - b.l; return i && hl ? (((b.h + b.l) / 2 - (a[i - 1].h + a[i - 1].l) / 2) / ((b.v || 1) / 1e4 / hl)) : 0; }); return { plots: [xl("EOM", xsma(e, P.len), 3)], hl: [0] }; });
+
+var XGROUPS = [["all", "Semua"], ["trend", "Tren dan rata-rata"], ["osc", "Osilator dan momentum"], ["vola", "Volatilitas"], ["vol", "Volume"]];
+var XBUILT = [["sma", "Moving Average (SMA)", "trend"], ["ema", "Moving Average Exponential (EMA)", "trend"], ["bb", "Bollinger Bands", "vola"], ["vwap", "VWAP", "vol"], ["vol", "Volume", "vol"], ["rsi", "Relative Strength Index (RSI)", "osc"], ["macd", "MACD", "osc"], ["stoch", "Stochastic", "osc"], ["atr", "Average True Range (ATR)", "vola"], ["adx", "Average Directional Index (ADX)", "osc"], ["st", "Supertrend", "trend"], ["ichi", "Ichimoku Cloud", "trend"]];
+
+/* ---- state / hitung ---- */
+S.xi = Array.isArray(saved.xi) ? saved.xi : [];
+S.xi = S.xi.filter(function (x) { return x && XIND[x.id]; }).map(function (x) { x.u = x.u || ++xUid; xUid = Math.max(xUid, x.u); return x; });
+function xParams(x) { return Object.assign({}, XIND[x.id].p, x.p || {}); }
+function xTitle(x) { var d = XIND[x.id], ps = Object.keys(d.p).map(function (k) { return xParams(x)[k]; }); return d.n.split(" ").length > 3 ? d.n : d.n + (ps.length ? " " + ps.join(", ") : ""); }
+function xAdd(id) { if (!XIND[id].ov && [S.ind.rsi, S.ind.macd, S.ind.stoch, S.ind.atr, S.ind.adx].filter(Boolean).length + S.cmpP.length + xPanes().length >= 8) { toast("Maksimal 8 panel indikator. Hapus salah satu dulu."); return null; } var x = { u: ++xUid, id: id, p: {}, c: {}, h: false }; S.xi.push(x); calcX(); legendHtml = null; draw(); save(); return x; }
+function xRemove(u) { S.xi = S.xi.filter(function (x) { return x.u !== u; }); delete XR[u]; legendHtml = null; draw(); save(); }
+function calcX() {
+  S.xi.forEach(function (x) { try { XR[x.u] = XIND[x.id].calc(xParams(x)); } catch (e) { XR[x.u] = { plots: [] }; } });
+}
+function xCol(x, p, i) { return (x.c && x.c[i]) || p.c; }
+function xPanes() { return S.xi.filter(function (x) { return !XIND[x.id].ov && !x.h && XR[x.u] && XR[x.u].plots.length; }); }
+
+/* overlay: dipanggil dari drawMain (G dan ctx aktif) */
+function drawXOverlay(C, lineFn, setLW) {
+  S.xi.forEach(function (x) {
+    var d = XIND[x.id], r = XR[x.u]; if (!d.ov || x.h || !r) return;
+    if (r.band) { var a = r.plots[r.band[0]], b = r.plots[r.band[1]], i, st = false; ctx.save(); ctx.globalAlpha = 0.07; ctx.fillStyle = xCol(x, a, r.band[0]); ctx.beginPath();
+      for (i = G.iL; i <= G.iR; i++) if (a.d[i] != null && b.d[i] != null) { var px = G.X(i), py = G.Yp(a.d[i]); if (!st) { ctx.moveTo(px, py); st = true; } else ctx.lineTo(px, py); }
+      for (i = G.iR; i >= G.iL; i--) if (a.d[i] != null && b.d[i] != null) ctx.lineTo(G.X(i), G.Yp(b.d[i]));
+      ctx.closePath(); ctx.fill(); ctx.restore(); }
+    r.plots.forEach(function (p, pi) {
+      var col = xCol(x, p, pi);
+      if (p.t === "dots") { ctx.fillStyle = col; var i2; for (i2 = G.iL; i2 <= G.iR; i2++) if (p.d[i2] != null) { ctx.beginPath(); ctx.arc(G.X(i2), G.Yp(p.d[i2]), 1.8, 0, 6.3); ctx.fill(); } }
+      else { setLW(p.w || 1.5); lineFn(p.d, col); }
+    });
+  });
+}
+function xOverlayVals(i, arr) { S.xi.forEach(function (x) { var r = XR[x.u]; if (XIND[x.id].ov && !x.h && r) r.plots.forEach(function (p) { arr.push(p.d[i]); }); }); }
+
+/* sub-pane generik */
+function drawXPane(u, top, h, C) {
+  var x = S.xi.filter(function (q) { return String(q.u) === String(u); })[0], r = x && XR[x.u]; if (!r) return;
+  var d = XIND[x.id], pw = G.pw, X = G.X, padT = 18, ih = h - padT - 4, i, lo = Infinity, hi = -Infinity;
+  r.plots.forEach(function (p) { for (i = G.iL; i <= G.iR; i++) { var v = p.d[i]; if (v != null) { if (v < lo) lo = v; if (v > hi) hi = v; } } });
+  (r.hl || []).forEach(function (v) { if (v < lo) lo = v; if (v > hi) hi = v; });
+  if (r.rng) { lo = r.rng[0]; hi = r.rng[1]; } else {
+    if (!isFinite(lo)) { lo = 0; hi = 1; }
+    var hist = r.plots.some(function (p) { return p.t === "hist"; }); if (hist) { if (lo > 0) lo = 0; if (hi < 0) hi = 0; }
+    var pad = (hi - lo) * 0.1 || Math.abs(hi) * 0.01 || 1; lo -= pad; hi += pad;
+  }
+  var Y2 = function (q) { return top + padT + (hi - q) / (hi - lo) * ih; };
+  var st = niceStep((hi - lo) / 3), ticks = [], q;
+  for (q = Math.ceil(lo / st) * st; q < hi; q += st) ticks.push(q);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, top + 1, pw, h - 1); ctx.clip();
+  if (S.grid) { ctx.strokeStyle = C.grid; ticks.forEach(function (t) { var y = Math.round(Y2(t)) + 0.5; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(pw, y); ctx.stroke(); }); }
+  if (r.hl && r.hl.length > 1 && r.rng) { ctx.globalAlpha = 0.07; ctx.fillStyle = xCol(x, r.plots[0], 0); ctx.fillRect(0, Y2(r.hl[r.hl.length - 1]), pw, Y2(r.hl[0]) - Y2(r.hl[r.hl.length - 1])); ctx.globalAlpha = 1; }
+  (r.hl || []).forEach(function (v) { var y = Math.round(Y2(v)) + 0.5; ctx.setLineDash([4, 4]); ctx.strokeStyle = C.muted; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(pw, y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; });
+  var zy = Y2(Math.max(lo, Math.min(hi, 0)));
+  r.plots.forEach(function (p, pi) {
+    var col = xCol(x, p, pi);
+    if (p.t === "hist") {
+      var bw2 = Math.max(1, G.bw * 0.7);
+      for (i = G.iL; i <= G.iR; i++) { var v = p.d[i]; if (v == null) continue; ctx.globalAlpha = 0.6; ctx.fillStyle = p.cols && p.cols[i] ? p.cols[i] : (x.c && x.c[pi] ? col : (v >= 0 ? C.up : C.down)); var yy = Y2(v); ctx.fillRect(X(i) - bw2 / 2, Math.min(zy, yy), bw2, Math.max(1, Math.abs(yy - zy))); ctx.globalAlpha = 1; }
+    } else {
+      ctx.strokeStyle = col; ctx.lineWidth = p.w || 1.5; ctx.beginPath(); var s = false;
+      for (i = G.iL; i <= G.iR; i++) { var v2 = p.d[i]; if (v2 == null) continue; var y2 = Y2(v2); if (!s) { ctx.moveTo(X(i), y2); s = true; } else ctx.lineTo(X(i), y2); }
+      ctx.stroke(); ctx.lineWidth = 1;
+    }
+  });
+  ctx.restore();
+  ctx.font = "600 11px " + css("--font-mono"); ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = C.muted; ctx.fillText(xTitle(x), 8, top + 10);
+  ctx.font = "11px " + css("--font-mono");
+  G.panes.push({ k: "x:" + x.u, top: top, h: h, Y2: Y2, lo: lo, hi: hi, ticks: ticks, padT: padT, ih: ih, dec: 2 });
+}
+function xLegend(i, item) {
+  var h = "";
+  S.xi.forEach(function (x) {
+    var r = XR[x.u]; if (!r) return; var vals = r.plots.map(function (p) { var v = p.d[i]; return v == null ? "\u2013" : (Math.abs(v) >= 1000 ? v.toFixed(1) : v.toFixed(Math.abs(v) < 1 ? 4 : 2)); }).join(" ");
+    var col = xCol(x, r.plots[0] || { c: XPAL[0] }, 0);
+    h += "<span class=\"chip\" data-xu=\"" + x.u + "\" style=\"color:" + col + (x.h ? ";opacity:.45" : "") + "\">" + xTitle(x) + " <b style=\"font-weight:500\">" + vals + "</b><span class=\"lt\"><button type=\"button\" data-xa=\"eye\" title=\"Sembunyikan/tampilkan\" aria-label=\"Sembunyikan\">\uD83D\uDC41</button><button type=\"button\" data-xa=\"set\" title=\"Pengaturan\" aria-label=\"Pengaturan\">\u2699</button><button type=\"button\" data-xa=\"del\" title=\"Hapus\" aria-label=\"Hapus\">\u00D7</button></span></span>";
+  });
+  return h;
+}
+var ALT = {};
+function altBox() { var a = atrOf(14), v = null, i; for (i = a.length - 1; i >= 0; i--) if (a[i] != null) { v = a[i]; break; } if (!v) v = bars[bars.length - 1].c * 0.005; return Math.max(v, 1e-9); }
+function altPush(out, b, o, c, h, l, extra) { var r = { t: b.t, o: o, c: c, h: h == null ? Math.max(o, c) : h, l: l == null ? Math.min(o, c) : l, v: b.v }; if (extra) Object.keys(extra).forEach(function (k) { r[k] = extra[k]; }); out.push(r); }
+function calcAlt() {
+  ALT = {}; if (!bars.length) return;
+  var B = altBox(), out, lvl, dir, last, n;
+  /* Renko */
+  out = []; lvl = bars[0].c; dir = 0; last = { o: lvl, c: lvl };
+  bars.forEach(function (b) {
+    var c = b.c, was = lvl, wd = dir;
+    if (dir >= 0 && c >= lvl + B) { n = Math.floor((c - lvl) / B); last = { o: lvl + (n - 1) * B, c: lvl + n * B }; lvl += n * B; dir = 1; }
+    else if (dir <= 0 && c <= lvl - B) { n = Math.floor((lvl - c) / B); last = { o: lvl - (n - 1) * B, c: lvl - n * B }; lvl -= n * B; dir = -1; }
+    else if (dir === 1 && c <= lvl - 2 * B) { n = Math.floor((lvl - B - c) / B); last = { o: lvl - B - (n - 1) * B, c: lvl - B - n * B }; lvl = lvl - B - n * B; dir = -1; }
+    else if (dir === -1 && c >= lvl + 2 * B) { n = Math.floor((c - lvl - B) / B); last = { o: lvl + B + (n - 1) * B, c: lvl + B + n * B }; lvl = lvl + B + n * B; dir = 1; }
+    altPush(out, b, last.o, last.c, null, null, { rep: lvl === was && dir === wd });
+  });
+  ALT.renko = out;
+  /* Range */
+  out = []; var ro = null, rh = 0, rl = 0;
+  bars.forEach(function (b) {
+    if (ro == null) { ro = b.o; rh = b.h; rl = b.l; } else { rh = Math.max(rh, b.h); rl = Math.min(rl, b.l); }
+    altPush(out, b, ro, b.c, rh, rl);
+    if (rh - rl >= B) { ro = b.c; rh = b.c; rl = b.c; }
+  });
+  ALT.range = out;
+  /* Line break (3 line) */
+  out = []; var lines = [{ o: bars[0].o, c: bars[0].c }];
+  var nl = 0;
+  bars.forEach(function (b, i) {
+    nl = lines.length;
+    if (i) {
+      var L = lines[lines.length - 1], up = L.c >= L.o, rec = lines.slice(-3), hi = Math.max.apply(null, rec.map(function (q) { return Math.max(q.o, q.c); })), lo = Math.min.apply(null, rec.map(function (q) { return Math.min(q.o, q.c); }));
+      if (up) { if (b.c > L.c) lines.push({ o: L.c, c: b.c }); else if (b.c < lo) lines.push({ o: L.c, c: b.c }); }
+      else { if (b.c < L.c) lines.push({ o: L.c, c: b.c }); else if (b.c > hi) lines.push({ o: L.c, c: b.c }); }
+    }
+    var Q = lines[lines.length - 1]; altPush(out, b, Q.o, Q.c, null, null, { rep: i > 0 && lines.length === nl });
+  });
+  ALT.lbreak = out;
+  /* Kagi */
+  out = []; lvl = bars[0].c; dir = 1; var prev = lvl;
+  bars.forEach(function (b) {
+    var c = b.c; prev = lvl;
+    if (dir > 0) { if (c > lvl) lvl = c; else if (c <= lvl - B) { dir = -1; lvl = c; } }
+    else { if (c < lvl) lvl = c; else if (c >= lvl + B) { dir = 1; lvl = c; } }
+    altPush(out, b, prev, lvl, Math.max(prev, lvl), Math.min(prev, lvl), { d: dir });
+  });
+  ALT.kagi = out;
+  /* Point & figure (reversal 3 kotak) */
+  out = []; lvl = Math.floor(bars[0].c / B) * B; dir = 1;
+  bars.forEach(function (b) {
+    var c = b.c;
+    if (dir > 0) { if (c >= lvl + B) lvl = Math.floor(c / B) * B; else if (c <= lvl - 3 * B) { dir = -1; lvl = Math.floor(c / B) * B; } }
+    else { if (c <= lvl - B) lvl = Math.floor(c / B) * B; else if (c >= lvl + 3 * B) { dir = 1; lvl = Math.floor(c / B) * B; } }
+    altPush(out, b, lvl, lvl, lvl + B, lvl, { d: dir });
+  });
+  ALT.pnf = out;
+}
+function altSrc(t) { return ALT[t] && ALT[t].length === bars.length ? ALT[t] : null; }
 /* ---------- Pine Script subset ---------- */
 var pineOut = null;
 var PINE_SAMPLE = '//@version=5\nindicator("Aurum demo bands", overlay=true)\n\nfast = ta.sma(close, 9)\nslow = ta.ema(close, 21)\n\nplot(fast, "SMA 9", color=color.blue, linewidth=2)\nplot(slow, "EMA 21", color=color.orange, linewidth=2)\nplot(ta.highest(high, 20), "Highest 20", color=color.gray)\nplot(ta.lowest(low, 20), "Lowest 20", color=color.gray)\n';
@@ -483,6 +717,7 @@ function geom() {
   var n = bars.length, nv = S.replay.on && !S.replay.pick ? Math.min(n, S.replay.idx + 1) : n, bw = S.barW;
   var pw = W - R, ph = H - B, subs = [];
   if (S.ind.rsi) subs.push("rsi"); if (S.ind.macd) subs.push("macd"); if (S.ind.stoch) subs.push("stoch"); if (S.ind.atr) subs.push("atr"); if (S.ind.adx) subs.push("adx"); S.cmpP.forEach(function (id, ci) { subs.push("cmp" + ci); });
+  xPanes().forEach(function (x) { subs.push("x:" + x.u); });
   if (pineOut && !pineOut.error && !pineOut.overlay && (pineOut.plots.length || pineOut.hlines.length)) subs.push("pine");
   var subH = subs.length ? Math.max(60, Math.min(150, ph * 0.2, ph * 0.55 / subs.length)) : 0, mainH = ph - subs.length * subH;
   var vis = pw / bw;
@@ -491,7 +726,7 @@ function geom() {
   var fiAtX = function (x) { return nv - 1 + S.off - (pw - bw / 2 - x) / bw; };
   var iL = Math.max(0, Math.floor(fiAtX(0)) - 1), iR = Math.min(nv - 1, Math.ceil(fiAtX(pw)));
   if (iL > iR) iL = iR;
-  var src = S.type === "ha" ? ha : bars, mode = cmpData.length ? "pct" : S.scale, ref0 = src[iL].c;
+  var src = S.type === "ha" ? ha : (altSrc(S.type) || bars), mode = cmpData.length ? "pct" : S.scale, ref0 = src[iL].c;
   var vOf = function (p, rf) { return mode === "log" ? Math.log(p) : mode === "pct" ? (p / rf - 1) * 100 : p; };
   var vm = function (p) { return vOf(p, ref0); };
   var lineish = ["line", "linem", "step", "area", "baseline"].indexOf(S.type) >= 0, lo = Infinity, hi = -Infinity, i;
@@ -502,6 +737,7 @@ function geom() {
     if (S.ind.sma) arr.push(ind.sma[i]); if (S.ind.ema) arr.push(ind.ema[i]); if (S.ind.vwap) arr.push(ind.vwap[i]);
     if (S.ind.bb) { arr.push(ind.bbU[i]); arr.push(ind.bbL[i]); }
     if (S.ind.st) arr.push(ind.st[i]); if (S.ind.ichi) { arr.push(ind.spA[i]); arr.push(ind.spB[i]); arr.push(ind.tenkan[i]); arr.push(ind.kijun[i]); }
+    xOverlayVals(i, arr);
     arr.forEach(function (v) { if (v != null) { var q = vm(v); if (q < lo) lo = q; if (q > hi) hi = q; } });
     cmpData.forEach(function (c) { var cb = c.bars[i]; if (cb) { var q = vOf(cb.c, c.bars[iL].c); if (q < lo) lo = q; if (q > hi) hi = q; } });
   }
@@ -568,11 +804,20 @@ function drawMain(C) {
   }
 
   var src = G.src, ty = S.type;
-  if (ty === "candles" || ty === "hollow" || ty === "ha" || ty === "vcandles") {
+  if (ty === "kagi") {
+    ctx.lineJoin = "miter"; var kPrev = null;
+    for (i = G.iL; i <= G.iR; i++) { b = src[i]; var kx = X(i), ky = G.Yp(b.c); ctx.strokeStyle = b.d > 0 ? C.up : C.down; ctx.lineWidth = b.d > 0 ? 3 : 1.5; ctx.beginPath(); if (kPrev) { ctx.moveTo(kPrev.x, kPrev.y); ctx.lineTo(kx, kPrev.y); ctx.lineTo(kx, ky); } else ctx.moveTo(kx, ky); ctx.stroke(); kPrev = { x: kx, y: ky }; }
+    ctx.lineWidth = 1;
+  } else if (ty === "pnf") {
+    var gs = Math.max(3, Math.min(bw * 0.9, Math.abs(G.Yp(src[G.iL].l) - G.Yp(src[G.iL].h)) * 0.9 || 8));
+    ctx.lineWidth = 1.4;
+    for (i = G.iL; i <= G.iR; i++) { b = src[i]; var px = X(i), py = (G.Yp(b.l) + G.Yp(b.h)) / 2, hs = gs / 2; ctx.strokeStyle = b.d > 0 ? C.up : C.down; ctx.beginPath(); if (b.d > 0) { ctx.moveTo(px - hs, py - hs); ctx.lineTo(px + hs, py + hs); ctx.moveTo(px + hs, py - hs); ctx.lineTo(px - hs, py + hs); } else ctx.ellipse(px, py, hs, hs, 0, 0, 6.2832); ctx.stroke(); }
+    ctx.lineWidth = 1;
+  } else if (ty === "candles" || ty === "hollow" || ty === "ha" || ty === "vcandles" || ty === "renko" || ty === "range" || ty === "lbreak") {
     var cw0 = Math.max(1, Math.floor(bw * 0.7)), cw = cw0, vmax = 0;
     if (ty === "vcandles") for (i = G.iL; i <= G.iR; i++) vmax = Math.max(vmax, src[i].v || 0);
     for (i = G.iL; i <= G.iR; i++) {
-      b = src[i]; if (ty === "vcandles") cw = Math.max(1, Math.floor(bw * (0.2 + 0.75 * (vmax ? (b.v || 0) / vmax : 1)))); var x = X(i), Q = S.sty, up = Q.pc && i > 0 ? b.c >= src[i - 1].c : b.c >= b.o;
+      b = src[i]; if (b.rep) continue; if (ty === "vcandles") cw = Math.max(1, Math.floor(bw * (0.2 + 0.75 * (vmax ? (b.v || 0) / vmax : 1)))); var x = X(i), Q = S.sty, up = Q.pc && i > 0 ? b.c >= src[i - 1].c : b.c >= b.o;
       var bc = up ? (Q.bu || C.up) : (Q.bd || C.down), oc = up ? (Q.ou || C.up) : (Q.od || C.down), wc = up ? (Q.wu || C.up) : (Q.wd || C.down);
       if (Q.wick !== false) { ctx.strokeStyle = wc; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, G.Yp(b.h)); ctx.lineTo(Math.round(x) + 0.5, G.Yp(b.l)); ctx.stroke(); }
       var yt = G.Yp(Math.max(b.o, b.c)), yb = G.Yp(Math.min(b.o, b.c)), hh = Math.max(1, yb - yt);
@@ -679,6 +924,8 @@ function drawMain(C) {
     });
   }
 
+  drawXOverlay(C, function (a, c) { line(a, c); }, function (w) { LW = w; });
+
   /* Pine Script overlay plots */
   if (pineOut && pineOut.overlay && !pineOut.error) {
     pineOut.hlines.forEach(function (h2) {
@@ -746,6 +993,7 @@ function pitchLines(a, b, c) {
 function stopOf(d) { return d.p1.p - (d.p2.p - d.p1.p); }
 function drawExtra(d, C, pv, a, b) {
   var t = d.type, c3 = d.p3 ? pxOf(d.p3) : null, col = d.cx || C[d.c || "acc"] || C.acc, i, p;
+  if (XT[t]) { drawXT(d, C, a, b, col); return; }
   function seg(p0, p1) { ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke(); }
   if (t === "arrow" && b) {
     seg(a, b); var an = Math.atan2(b.y - a.y, b.x - a.x), hl = 11;
@@ -794,6 +1042,7 @@ function drawExtra(d, C, pv, a, b) {
 }
 function hitExtra(d, a, b, x, y) {
   var t = d.type, c3 = d.p3 ? pxOf(d.p3) : null, i;
+  if (XT[t]) return hitXT(d, a, b, x, y);
   if (t === "arrow") return dSeg(x, y, a, b) < TOL;
   if (t === "brush") { var pp = (d.pts || []).map(pxOf); for (i = 1; i < pp.length; i++) if (dSeg(x, y, pp[i - 1], pp[i]) < TOL) return true; return false; }
   if (t === "ellipse" || t === "fibext") return x >= Math.min(a.x, b.x) - 4 && x <= Math.max(a.x, b.x) + 4 && y >= Math.min(a.y, b.y) - 4 && y <= Math.max(a.y, b.y) + 4;
@@ -911,7 +1160,7 @@ function drawDrawings(C) {
 
   /* alerts + position */
   S.alerts.forEach(function (al) {
-    if (al.sym !== S.sym.id || !al.active) return;
+    if (al.sym !== S.sym.id || !al.active || S.sty.aLn === false) return;
     var y = G.Yp(al.price); ctx.strokeStyle = C.acc; ctx.setLineDash([2, 4]); ctx.beginPath(); ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(G.pw, Math.round(y) + 0.5); ctx.stroke(); ctx.setLineDash([]);
     ctx.font = "11px " + css("--font-mono"); ctx.fillStyle = C.acc; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.fillText("Alert", 8, y - 3);
     G.tags.push({ y: y, text: fmtAxis(al.price), bg: C.acc, fg: C.bg });
@@ -935,6 +1184,7 @@ function drawSubs(C) {
     var top = G.mainH + si * G.subH, h = G.subH, padT = 18, ih = h - padT - 4, lo, hi;
     ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(0, top + 0.5); ctx.lineTo(W, top + 0.5); ctx.stroke();
     if (k.indexOf("cmp") === 0) { drawCmpPane(+k.slice(3), top, h, C); return; }
+    if (k.indexOf("x:") === 0) { drawXPane(k.slice(2), top, h, C); return; }
     if (k === "pine") { drawPinePane(top, h, C); return; }
     if (k === "rsi" || k === "stoch") { lo = 0; hi = 100; }
     else if (k === "atr") { var mxa = 1e-9; for (i = G.iL; i <= G.iR; i++) if (ind.atr[i] != null && ind.atr[i] > mxa) mxa = ind.atr[i]; lo = 0; hi = mxa * 1.15; }
@@ -1027,7 +1277,7 @@ function tagBox(text, x, y, w, bg, fg) {
   ctx.fillStyle = fg; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(text, x + 6, y + 0.5);
 }
 function drawPos(C) {
-  var ps = S.acc.pos[S.sym.id]; if (!ps) return;
+  var ps = S.acc.pos[S.sym.id]; if (!ps || S.sty.tPos === false) return;
   var y = G.Yp(ps.avg); if (!(y > T && y < G.mainH)) return;
   var pnl = (curPrice() - ps.avg) * ps.q, col = pnl >= 0 ? C.up : C.down, txt = (ps.q > 0 ? "LONG " : "SHORT ") + Math.abs(ps.q) + "  " + (pnl >= 0 ? "+" : "") + fmt(pnl, 2);
   ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(G.pw, Math.round(y) + 0.5); ctx.stroke(); ctx.setLineDash([]);
@@ -1095,7 +1345,7 @@ function draw() {
   }
   G.hovIdx = hovIdx; paintReadout(hovIdx, C);
 }
-var legendHtml = "";
+var legendHtml = null;
 function paintReadout(i, C) {
   var b = bars[i], d = S.sym.dec, up = b.c >= b.o, cls = up ? "up" : "down", ch = b.c - b.o;
   $("#readout").innerHTML = "<span>O<b>" + fmt(b.o, d) + "</b></span><span>H<b>" + fmt(b.h, d) + "</b></span><span>L<b>" + fmt(b.l, d) + "</b></span><span>C<b class=\"" + cls + "\">" + fmt(b.c, d) + "</b></span>" +
@@ -1109,6 +1359,7 @@ function paintReadout(i, C) {
   if (S.ind.stoch) h += item(C.i1, "Stoch " + S.len.stoch, v(ind.stK, 1) + " / " + v(ind.stD, 1)); if (S.ind.atr) h += item(C.i4, "ATR " + S.len.atr, v(ind.atr));
   if (S.ind.adx) h += item(C.i3, "ADX " + S.len.adx, v(ind.adx, 1)); if (S.ind.st) h += item(C.i3, "Supertrend", v(ind.st)); if (S.ind.ichi) h += item(C.i1, "Ichimoku", v(ind.tenkan) + " / " + v(ind.kijun));
   if (S.ind.macd) h += item(C.i1, "MACD", v(ind.macd, 2) + " / " + v(ind.sig, 2));
+  h += xLegend(i);
   cmpData.forEach(function (c, ci) { var cb = c.bars[i]; if (cb) h += item(C["c" + (ci + 1)], c.sym.label, fmt(cb.c, c.sym.dec)); });
   if (h !== legendHtml) { $("#legend").innerHTML = h; legendHtml = h; }
 }
@@ -1449,6 +1700,101 @@ $("#ctxm").addEventListener("click", function (e) {
   else if (a === "reset") { resetView(); draw(); }
 });
 
+var XT = { angle: 1, infoline: 1, regr: 1, fibtz: 1, fibfan: 1, fibcirc: 1, gannbox: 1, daterange: 1, pricerange: 1, dprange: 1, circle: 1, pricelabel: 1, flag: 1, arrowup: 1, arrowdown: 1 };
+var XT1 = { pricelabel: 1, flag: 1, arrowup: 1, arrowdown: 1 };
+Object.keys(XT).forEach(function (k) { EXTRA[k] = 1; if (XT1[k]) ONE[k] = 1; else TWO[k] = 1; });
+Object.assign(ICONS, {
+  angle: "<path d='M4 17h14M4 17L16 6'/><path d='M10 17a6 6 0 0 0-2-4.5' />", infoline: "<path d='M4 17L17 6'/><rect x='9' y='11' width='9' height='6' rx='1'/>",
+  regr: "<path d='M3 15L19 7'/><path d='M3 11L19 3M3 19L19 11' stroke-dasharray='2 2'/>", fibtz: "<path d='M4 4v14M7 4v14M11 4v14M18 4v14'/>",
+  fibfan: "<path d='M4 18L19 4M4 18L19 9M4 18L19 14'/>", fibcirc: "<circle cx='11' cy='11' r='3'/><circle cx='11' cy='11' r='6'/><circle cx='11' cy='11' r='9'/>",
+  gannbox: "<rect x='4' y='4' width='14' height='14'/><path d='M4 18L18 4M4 11h14M11 4v14'/>", daterange: "<path d='M5 4v14M17 4v14M5 11h12M8 8l-3 3 3 3M14 8l3 3-3 3'/>",
+  pricerange: "<path d='M4 5h14M4 17h14M11 5v12M8 8l3-3 3 3M8 14l3 3 3-3'/>", dprange: "<rect x='4' y='5' width='14' height='12'/><path d='M11 5v12M4 11h14'/>",
+  circle: "<circle cx='11' cy='11' r='7'/>", pricelabel: "<path d='M3 11l4-4h12v8H7z'/>", flag: "<path d='M6 19V4M6 5h11l-3 3.5 3 3.5H6'/>",
+  arrowup: "<path d='M11 19V6M5 12l6-6 6 6'/>", arrowdown: "<path d='M11 3v13M5 10l6 6 6-6'/>"
+});
+Object.assign(TN, { angle: "Trend angle", infoline: "Info line", regr: "Regression trend", fibtz: "Fib time zones", fibfan: "Fib speed resistance fan", fibcirc: "Fib circles", gannbox: "Gann box",
+  daterange: "Date range", pricerange: "Price range", dprange: "Date and price range", circle: "Circle", pricelabel: "Price label", flag: "Flag mark", arrowup: "Arrow mark up", arrowdown: "Arrow mark down" });
+function addTools(gid, list) { var g = grpById(gid); list.forEach(function (t) { if (g.tools.indexOf(t) < 0) g.tools.push(t); }); }
+addTools("lines", ["angle", "infoline", "regr"]); addTools("fib", ["fibtz", "fibfan", "fibcirc", "gannbox"]);
+addTools("fore", ["daterange", "pricerange", "dprange"]); addTools("shape", ["circle"]); addTools("note", ["pricelabel", "flag", "arrowup", "arrowdown"]);
+
+function xtBox(txt, x, y, col) { ctx.font = "11px " + css("--font-mono"); var w = ctx.measureText(txt).width + 12; x = Math.max(2, Math.min(G.pw - w - 2, x)); ctx.save(); ctx.globalAlpha = 1; ctx.fillStyle = col; ctx.fillRect(x, y, w, 18); ctx.fillStyle = "#ffffff"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(txt, x + 6, y + 9.5); ctx.restore(); }
+function xtDelta(d) { var dp = d.p2.p - d.p1.p, nb = Math.round((d.p2.t - d.p1.t) / S.tf.s); return { dp: dp, pc: dp / d.p1.p * 100, nb: nb, dt: d.p2.t - d.p1.t }; }
+function drawXT(d, C, a, b, col) {
+  var t = d.type, pw = G.pw, ph = G.ph, dd = b ? xtDelta(d) : null, i, up = dd ? dd.dp >= 0 : true, sc = up ? C.up : C.down;
+  function seg(p, q) { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke(); }
+  function dot(p) { ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, 6.2832); ctx.fill(); }
+  if (t === "angle" && b) {
+    seg(a, b); dot(a); ctx.setLineDash([3, 4]); seg(a, { x: Math.max(a.x, b.x) + 40, y: a.y }); ctx.setLineDash([]);
+    var ang = -Math.atan2(b.y - a.y, b.x - a.x), deg = ang * 180 / Math.PI, dir = b.x >= a.x;
+    ctx.beginPath(); ctx.arc(a.x, a.y, 28, dir ? 0 : Math.PI, dir ? -ang : Math.PI - ang, (dir ? ang > 0 : ang < 0) !== !dir); ctx.stroke();
+    xtBox(Math.abs(deg).toFixed(1) + "\u00B0", b.x + 8, b.y - 9, col);
+  } else if (t === "infoline" && b) {
+    seg(a, b); dot(a); dot(b);
+    xtBox((dd.dp >= 0 ? "+" : "") + fmt(dd.dp, S.sym.dec) + " (" + (dd.pc >= 0 ? "+" : "") + dd.pc.toFixed(2) + "%)  " + dd.nb + " bars, " + dur(dd.dt), (a.x + b.x) / 2 - 60, Math.min(a.y, b.y) - 26, sc);
+  } else if (t === "regr" && b) {
+    var i1 = Math.max(0, Math.round(Math.min(tToI(d.p1.t), tToI(d.p2.t)))), i2 = Math.min(bars.length - 1, Math.round(Math.max(tToI(d.p1.t), tToI(d.p2.t)))), n = i2 - i1 + 1;
+    if (n < 3) { seg(a, b); return; }
+    var sx = 0, sy = 0, sxy = 0, sxx = 0; for (i = 0; i < n; i++) { var y = bars[i1 + i].c; sx += i; sy += y; sxy += i * y; sxx += i * i; }
+    var sl = (n * sxy - sx * sy) / ((n * sxx - sx * sx) || 1), ic = (sy - sl * sx) / n, sd = 0; for (i = 0; i < n; i++) { var r = bars[i1 + i].c - (ic + sl * i); sd += r * r; } sd = Math.sqrt(sd / n);
+    var P = function (k, off) { return { x: G.X(i1 + k), y: G.Yp(ic + sl * k + off) }; };
+    ctx.globalAlpha = 0.08; ctx.beginPath(); ctx.moveTo(P(0, 2 * sd).x, P(0, 2 * sd).y); ctx.lineTo(P(n - 1, 2 * sd).x, P(n - 1, 2 * sd).y); ctx.lineTo(P(n - 1, -2 * sd).x, P(n - 1, -2 * sd).y); ctx.lineTo(P(0, -2 * sd).x, P(0, -2 * sd).y); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+    seg(P(0, 0), P(n - 1, 0)); ctx.setLineDash([5, 4]); seg(P(0, 2 * sd), P(n - 1, 2 * sd)); seg(P(0, -2 * sd), P(n - 1, -2 * sd)); ctx.setLineDash([]);
+  } else if (t === "fibtz" && b) {
+    var dx = b.x - a.x, L = [0, 1, 2, 3, 5, 8, 13, 21, 34]; ctx.font = "11px " + css("--font-mono"); ctx.textAlign = "left"; ctx.textBaseline = "top";
+    L.forEach(function (f) { var x = a.x + dx * f; if (x < -10 || x > pw + 10) return; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, 0); ctx.lineTo(Math.round(x) + 0.5, ph); ctx.stroke(); ctx.fillText(String(f), x + 3, 4); });
+    ctx.globalAlpha = 0.6; ctx.setLineDash([3, 4]); seg(a, { x: b.x, y: a.y }); ctx.globalAlpha = 1; ctx.setLineDash([]);
+  } else if (t === "fibfan" && b) {
+    ctx.font = "11px " + css("--font-mono"); ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+    [0.25, 0.382, 0.5, 0.618, 0.75, 1].forEach(function (r) { var tp = { x: b.x, y: a.y + (b.y - a.y) * r }, e = extendRay(a, tp, pw); ctx.lineWidth = r === 1 ? 1.5 : 1; seg(a, e); ctx.fillText(String(r), Math.min(pw - 28, b.x + 4), tp.y - 2); });
+    ctx.globalAlpha = 0.5; ctx.setLineDash([3, 4]); seg({ x: b.x, y: a.y }, b); ctx.globalAlpha = 1; ctx.setLineDash([]);
+  } else if (t === "fibcirc" && b) {
+    var cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2, R0 = Math.hypot(b.x - a.x, b.y - a.y) / 2; ctx.font = "11px " + css("--font-mono"); ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+    [0.382, 0.5, 0.618, 1, 1.618].forEach(function (r) { ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, R0 * r, 0, 6.2832); ctx.stroke(); ctx.fillText(String(r), cx + R0 * r + 3, cy - 2); });
+    ctx.globalAlpha = 0.5; ctx.setLineDash([3, 4]); seg(a, b); ctx.globalAlpha = 1; ctx.setLineDash([]);
+  } else if (t === "gannbox" && b) {
+    var gx = Math.min(a.x, b.x), gy = Math.min(a.y, b.y), gw = Math.abs(b.x - a.x), gh = Math.abs(b.y - a.y);
+    ctx.globalAlpha = 0.06; ctx.fillRect(gx, gy, gw, gh); ctx.globalAlpha = 1; ctx.strokeRect(gx, gy, gw, gh); ctx.lineWidth = 1;
+    [0.25, 0.5, 0.75].forEach(function (r) { ctx.beginPath(); ctx.moveTo(gx + gw * r, gy); ctx.lineTo(gx + gw * r, gy + gh); ctx.moveTo(gx, gy + gh * r); ctx.lineTo(gx + gw, gy + gh * r); ctx.stroke(); });
+    ctx.globalAlpha = 0.7; seg({ x: gx, y: gy }, { x: gx + gw, y: gy + gh }); seg({ x: gx, y: gy + gh }, { x: gx + gw, y: gy }); ctx.globalAlpha = 1;
+  } else if (t === "daterange" && b) {
+    var x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x), my = (a.y + b.y) / 2;
+    ctx.globalAlpha = 0.09; ctx.fillRect(x0, 0, x1 - x0, ph); ctx.globalAlpha = 1; ctx.beginPath(); ctx.moveTo(Math.round(x0) + 0.5, 0); ctx.lineTo(Math.round(x0) + 0.5, ph); ctx.moveTo(Math.round(x1) + 0.5, 0); ctx.lineTo(Math.round(x1) + 0.5, ph); ctx.stroke();
+    seg({ x: x0, y: my }, { x: x1, y: my }); ctx.beginPath(); ctx.moveTo(x1 - 6, my - 4); ctx.lineTo(x1, my); ctx.lineTo(x1 - 6, my + 4); ctx.stroke();
+    xtBox(Math.abs(dd.nb) + " bars, " + dur(Math.abs(dd.dt)), (x0 + x1) / 2 - 50, my - 26, col);
+  } else if (t === "pricerange" && b) {
+    var y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y), xa = Math.min(a.x, b.x), xb = Math.max(a.x, b.x, xa + 80), mx = (xa + xb) / 2;
+    ctx.globalAlpha = 0.09; ctx.fillRect(xa, y0, xb - xa, y1 - y0); ctx.globalAlpha = 1; ctx.beginPath(); ctx.moveTo(xa, Math.round(y0) + 0.5); ctx.lineTo(xb, Math.round(y0) + 0.5); ctx.moveTo(xa, Math.round(y1) + 0.5); ctx.lineTo(xb, Math.round(y1) + 0.5); ctx.stroke();
+    seg({ x: mx, y: y1 }, { x: mx, y: y0 }); ctx.beginPath(); ctx.moveTo(mx - 4, y0 + 6); ctx.lineTo(mx, y0); ctx.lineTo(mx + 4, y0 + 6); ctx.stroke();
+    xtBox((dd.dp >= 0 ? "+" : "") + fmt(dd.dp, S.sym.dec) + " (" + (dd.pc >= 0 ? "+" : "") + dd.pc.toFixed(2) + "%)", mx - 50, (y0 + y1) / 2 - 9, col);
+  } else if (t === "dprange" && b) {
+    var rx = Math.min(a.x, b.x), ry = Math.min(a.y, b.y), rw = Math.abs(b.x - a.x), rh = Math.abs(b.y - a.y);
+    ctx.globalAlpha = 0.1; ctx.fillStyle = sc; ctx.fillRect(rx, ry, rw, rh); ctx.globalAlpha = 1; ctx.strokeStyle = sc; ctx.strokeRect(rx, ry, rw, rh);
+    xtBox((dd.dp >= 0 ? "+" : "") + fmt(dd.dp, S.sym.dec) + " (" + (dd.pc >= 0 ? "+" : "") + dd.pc.toFixed(2) + "%), " + Math.abs(dd.nb) + " bars, " + dur(Math.abs(dd.dt)), rx + rw / 2 - 90, ry - 22 < 2 ? ry + rh + 4 : ry - 22, sc);
+  } else if (t === "circle" && b) {
+    var rr = Math.hypot(b.x - a.x, b.y - a.y); ctx.beginPath(); ctx.arc(a.x, a.y, rr, 0, 6.2832); ctx.globalAlpha = 0.12; ctx.fill(); ctx.globalAlpha = 1; ctx.stroke(); dot(a);
+  } else if (t === "pricelabel") {
+    var txt = fmtAxis(d.p1.p); ctx.font = "600 11px " + css("--font-mono"); var tw = ctx.measureText(txt).width + 14;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x + 7, a.y - 9); ctx.lineTo(a.x + 7 + tw, a.y - 9); ctx.lineTo(a.x + 7 + tw, a.y + 9); ctx.lineTo(a.x + 7, a.y + 9); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#ffffff"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(txt, a.x + 14, a.y + 0.5);
+  } else if (t === "flag") {
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x, a.y - 30); ctx.stroke(); ctx.beginPath(); ctx.moveTo(a.x, a.y - 30); ctx.lineTo(a.x + 20, a.y - 30); ctx.lineTo(a.x + 14, a.y - 23); ctx.lineTo(a.x + 20, a.y - 16); ctx.lineTo(a.x, a.y - 16); ctx.closePath(); ctx.fill(); dot(a);
+  } else if (t === "arrowup" || t === "arrowdown") {
+    var s = t === "arrowup" ? 1 : -1; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x - 9, a.y + 11 * s); ctx.lineTo(a.x - 3.5, a.y + 11 * s); ctx.lineTo(a.x - 3.5, a.y + 24 * s); ctx.lineTo(a.x + 3.5, a.y + 24 * s); ctx.lineTo(a.x + 3.5, a.y + 11 * s); ctx.lineTo(a.x + 9, a.y + 11 * s); ctx.closePath(); ctx.fill();
+  }
+}
+function hitXT(d, a, b, x, y) {
+  var t = d.type;
+  if (XT1[t]) { if (t === "pricelabel") return x >= a.x - 4 && x <= a.x + 90 && y >= a.y - 11 && y <= a.y + 11; if (t === "flag") return x >= a.x - 6 && x <= a.x + 24 && y >= a.y - 34 && y <= a.y + 4; return Math.abs(x - a.x) < 12 && y >= Math.min(a.y, a.y + (t === "arrowup" ? 26 : -26)) - 2 && y <= Math.max(a.y, a.y + (t === "arrowup" ? 26 : -26)) + 2; }
+  if (!b) return false;
+  if (t === "angle" || t === "infoline" || t === "regr") return dSeg(x, y, a, b) < TOL;
+  if (t === "circle") return Math.hypot(x - a.x, y - a.y) <= Math.hypot(b.x - a.x, b.y - a.y) + 4;
+  if (t === "fibtz") { var dx = b.x - a.x; return [0, 1, 2, 3, 5, 8, 13, 21, 34].some(function (f) { return Math.abs(x - (a.x + dx * f)) < TOL; }); }
+  if (t === "fibfan") return [0.25, 0.382, 0.5, 0.618, 0.75, 1].some(function (r) { return dSeg(x, y, a, extendRay(a, { x: b.x, y: a.y + (b.y - a.y) * r }, G.pw)) < TOL; });
+  if (t === "fibcirc") { var cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2, R0 = Math.hypot(b.x - a.x, b.y - a.y) / 2, dd = Math.hypot(x - cx, y - cy); return [0.382, 0.5, 0.618, 1, 1.618].some(function (r) { return Math.abs(dd - R0 * r) < TOL; }); }
+  if (t === "daterange") return x >= Math.min(a.x, b.x) - 4 && x <= Math.max(a.x, b.x) + 4;
+  return x >= Math.min(a.x, b.x) - 4 && x <= Math.max(a.x, b.x, Math.min(a.x, b.x) + 80) + 4 && y >= Math.min(a.y, b.y) - 4 && y <= Math.max(a.y, b.y) + 4;
+}
 /* ---------- events: economic / corporate calendar markers ---------- */
 var evs = [];
 var EVSET = {
@@ -1607,16 +1953,16 @@ document.addEventListener("click", function (e) { if (!e.target.closest(".pop"))
 function buildMenus() {
   var h = ""; TYPES.forEach(function (t) { h += "<label><input type='radio' name='ctype' value='" + t[0] + "'> " + t[1] + "</label>"; });
   $("#typePop").innerHTML = h; wireDd($("#typeBtn"), $("#typePop"));
-  $("#typePop").addEventListener("change", function (e) { S.type = e.target.value; syncUI(); draw(); save(); });
+  $("#typePop").addEventListener("change", function (e) { S.type = e.target.value; syncUI(); draw(); save(); closeAll(); });
   h = ""; INDS.forEach(function (t) { var nm = LNAME[t[0]] || t[1]; h += "<label><input type='checkbox' data-k='" + t[0] + "'> " + nm + (LENK[t[0]] ? " <input type='number' class='len' title='Length' data-len='" + LENK[t[0]] + "' min='2' max='500' value='" + S.len[LENK[t[0]]] + "'>" : "") + "</label>"; });
   var C0 = colors(), cs = "";
   [["i1", "SMA / MACD"], ["i2", "EMA / RSI"], ["i3", "Bollinger / ADX"], ["i4", "VWAP / ATR"]].forEach(function (c) { cs += "<label>" + c[1] + " <input type='color' data-col='" + c[0] + "' value='" + C0[c[0]] + "' style='margin-left:auto;width:34px;height:22px;padding:0;border:0;background:none'></label>"; });
-  $("#indPop").innerHTML = "<div style='padding:4px 8px'><input id='indQ' type='search' placeholder='Search indicators' aria-label='Search indicators' style='width:100%;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:5px 8px'></div>" + h + "<div class='sep'></div><small>Indicator colors</small>" + cs + "<button class='opt' type='button' id='colReset'>Reset colors</button>"; wireDd($("#indBtn"), $("#indPop"));
+  $("#indPop").innerHTML = "<div style='padding:4px 8px'><input id='indQ' type='search' placeholder='Search indicators' aria-label='Search indicators' style='width:100%;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:5px 8px'></div>" + h + "<div class='sep'></div><small>Indicator colors</small>" + cs + "<button class='opt' type='button' id='colReset'>Reset colors</button>"; $("#indBtn").addEventListener("click", function (e) { e.stopPropagation(); closeAll(); hideFly(); openIndDlg(); });
   $("#indQ").addEventListener("input", function () { var q = this.value.toLowerCase(); $$("#indPop label").forEach(function (l) { if (!l.querySelector("[data-k]")) return; l.style.display = l.textContent.toLowerCase().indexOf(q) < 0 ? "none" : ""; }); });
-  $("#indPop").addEventListener("input", function (e) { if (!e.target.dataset.col) return; S.colOv[e.target.dataset.col] = e.target.value; legendHtml = ""; draw(); save(); });
+  $("#indPop").addEventListener("input", function (e) { if (!e.target.dataset.col) return; S.colOv[e.target.dataset.col] = e.target.value; legendHtml = null; draw(); save(); });
   $("#colReset").addEventListener("click", function () { S.colOv = {}; $$("#indPop [data-col]").forEach(function (i) { i.value = colors()[i.dataset.col]; }); draw(); save(); });
   $("#indPop").addEventListener("change", function (e) {
-    if (e.target.dataset.len) { S.len[e.target.dataset.len] = Math.max(2, Math.min(500, parseInt(e.target.value, 10) || 14)); e.target.value = S.len[e.target.dataset.len]; recalc(); legendHtml = ""; draw(); save(); return; }
+    if (e.target.dataset.len) { S.len[e.target.dataset.len] = Math.max(2, Math.min(500, parseInt(e.target.value, 10) || 14)); e.target.value = S.len[e.target.dataset.len]; recalc(); legendHtml = null; draw(); save(); return; }
     if (!e.target.dataset.k) return; S.ind[e.target.dataset.k] = e.target.checked; syncUI(); draw(); save();
   });
   h = "<label><input type='checkbox' id='gridChk'> Grid lines</label><label><input type='checkbox' id='hiloChk'> High and low price labels</label><label><input type='checkbox' id='wmChk'> Watermark <span style='color:var(--muted)'>(symbol text in the middle of the chart)</span></label><label><input type='checkbox' id='evChk2'> Event markers on chart</label><div class='row'><label for='tzSel' style='padding:0'>Time zone</label></div><div style='padding:0 8px 6px'><select id='tzSel'>";
@@ -1637,13 +1983,13 @@ function buildMenus() {
   lyRender();
   $("#lySave").addEventListener("click", function () {
     var n = $("#lyName").value.trim(); if (!n) { toast("Type a layout name first."); return; }
-    var o = lyGet(); o[n] = { sym: S.sym.id, tf: S.tf.k, type: S.type, scale: S.scale, invert: S.invert, hilo: S.hilo, events: S.events, ind: S.ind, len: S.len, cmp: S.cmp, cmpP: S.cmpP, colOv: S.colOv, pine: S.pine }; lySet(o); $("#lyName").value = ""; lyRender(); $("#lySel").value = n; toast("Layout saved.");
+    var o = lyGet(); o[n] = { sym: S.sym.id, tf: S.tf.k, type: S.type, scale: S.scale, invert: S.invert, hilo: S.hilo, events: S.events, ind: S.ind, xi: S.xi, len: S.len, cmp: S.cmp, cmpP: S.cmpP, colOv: S.colOv, pine: S.pine }; lySet(o); $("#lyName").value = ""; lyRender(); $("#lySel").value = n; toast("Layout saved.");
   });
   $("#lyLoad").addEventListener("click", function () {
     var l = lyGet()[$("#lySel").value]; if (!l) return;
     S.sym = N_(l.sym) || S.sym; S.tf = tfByKey(l.tf) || S.tf; S.type = l.type; S.scale = l.scale; S.ind = Object.assign(S.ind, l.ind); S.len = Object.assign(S.len, l.len);
     S.cmp = (l.cmp || []).filter(function (id) { return N_(id) && id !== S.sym.id; }); S.cmpP = (l.cmpP || []).filter(function (id) { return N_(id) && id !== S.sym.id; }); S.colOv = l.colOv || {}; S.range = null; S.sel = null;
-    S.invert = !!l.invert; S.hilo = l.hilo !== false; S.events = l.events !== false; S.pine = l.pine || null;
+    S.xi = (l.xi || []).filter(function (x) { return XIND[x.id]; }).map(function (x) { x.u = ++xUid; return x; }); S.invert = !!l.invert; S.hilo = l.hilo !== false; S.events = l.events !== false; S.pine = l.pine || null;
     if (S.pine) $("#pineCode").value = S.pine.src; recalc();
     $$("#indPop input.len").forEach(function (i) { i.value = S.len[i.dataset.len]; }); $$("#indPop [data-col]").forEach(function (i) { i.value = colors()[i.dataset.col]; });
     closeAll(); setReplay(false); loadData(); header(); watchUpdate(); renderAlerts(); renderTrade(); renderInfo(); $("#qty").value = S.sym.lot; syncSel(); syncUI(); save(); toast("Layout loaded.");
@@ -1762,6 +2108,90 @@ $("#symBtn").addEventListener("click", function () { openSearch("sym"); });
 })();
 $("#wlAdd").addEventListener("click", function () { openSearch("watch"); });
 
+var idCat = "all", idQ = "", idEl = null;
+function closeIndDlg() { if (idEl) idEl.hidden = true; }
+document.addEventListener("keydown", function (e) { if (e.key === "Escape" && idEl && !idEl.hidden) { e.stopPropagation(); closeIndDlg(); } }, true);
+function idBuiltKey(k) { return $("#indPop [data-k=\"" + k + "\"]"); }
+function idRows() {
+  var q = idQ.trim().toLowerCase(), rows = [], act = [];
+  XBUILT.forEach(function (b) { if (S.ind[b[0]]) act.push({ kind: "b", k: b[0], n: b[1] }); });
+  S.xi.forEach(function (x) { act.push({ kind: "x", u: x.u, n: xTitle(x) }); });
+  if (idCat === "active") return act.map(function (a) { a.active = true; return a; });
+  XBUILT.forEach(function (b) { if ((idCat === "all" || idCat === b[2]) && (!q || b[1].toLowerCase().indexOf(q) >= 0)) rows.push({ kind: "b", k: b[0], n: b[1], g: b[2], on: !!S.ind[b[0]] }); });
+  XORDER.forEach(function (id) { var d = XIND[id]; if ((idCat === "all" || idCat === d.g) && (!q || d.n.toLowerCase().indexOf(q) >= 0)) rows.push({ kind: "x", id: id, n: d.n, g: d.g, ov: d.ov }); });
+  rows.sort(function (a, b) { return a.n.localeCompare(b.n); });
+  return rows;
+}
+function idRender() {
+  var act = XBUILT.filter(function (b) { return S.ind[b[0]]; }).length + S.xi.length, h = "";
+  var nav = [["active", "Aktif (" + act + ")"]].concat(XGROUPS);
+  $(".idl", idEl).innerHTML = nav.map(function (n) { return "<button type=\"button\" data-cat=\"" + n[0] + "\" aria-pressed=\"" + (idCat === n[0]) + "\">" + n[1] + "</button>"; }).join("");
+  var rows = idRows(), gl = { trend: "Tren", osc: "Osilator", vola: "Volatilitas", vol: "Volume" };
+  if (!rows.length) h = "<li class=\"idnone\">" + (idCat === "active" ? "Belum ada indikator aktif. Pilih dari daftar." : "Tidak ada hasil.") + "</li>";
+  rows.forEach(function (r) {
+    if (r.active) h += "<li class=\"idrow act\"><span class=\"nm\">" + r.n + "</span><span class=\"idacts\"><button type=\"button\" data-ia=\"cfg\" data-kind=\"" + r.kind + "\" data-key=\"" + (r.kind === "b" ? r.k : r.u) + "\" aria-label=\"Pengaturan " + r.n + "\">\u2699</button><button type=\"button\" data-ia=\"del\" data-kind=\"" + r.kind + "\" data-key=\"" + (r.kind === "b" ? r.k : r.u) + "\" aria-label=\"Hapus " + r.n + "\">\u00D7</button></span></li>";
+    else h += "<li class=\"idrow\"><button type=\"button\" class=\"idpick\" data-ia=\"add\" data-kind=\"" + r.kind + "\" data-key=\"" + (r.kind === "b" ? r.k : r.id) + "\"><span class=\"nm\">" + r.n + "</span><span class=\"tg\">" + (gl[r.g] || "") + (r.ov === false ? " \u00B7 panel" : r.ov ? " \u00B7 overlay" : "") + "</span>" + (r.on ? "<span class=\"on\">Aktif</span>" : "") + "</button></li>";
+  });
+  $(".idlist", idEl).innerHTML = h;
+}
+function openIndDlg(cat) {
+  if (!idEl) {
+    idEl = document.createElement("div"); idEl.id = "indDlg"; idEl.className = "modal"; idEl.hidden = true; idEl.setAttribute("role", "dialog"); idEl.setAttribute("aria-modal", "true"); idEl.setAttribute("aria-label", "Indikator");
+    idEl.innerHTML = "<div class=\"box idbox\"><div class=\"hd\"><b>Indikator, metrik, dan strategi</b><span class=\"spacer\" style=\"flex:1\"></span><button type=\"button\" class=\"btn ic\" data-ia=\"close\" aria-label=\"Tutup\">\u00D7</button></div><div class=\"hd\"><input id=\"idq\" type=\"search\" placeholder=\"Cari\" aria-label=\"Cari indikator\" autocomplete=\"off\"></div><div class=\"idbd\"><nav class=\"idl\" aria-label=\"Kategori\"></nav><ul class=\"idlist\"></ul></div></div>";
+    document.body.appendChild(idEl);
+    idEl.addEventListener("click", function (e) {
+      if (e.target === idEl) { closeIndDlg(); return; }
+      var c = e.target.closest("[data-cat]"); if (c) { idCat = c.dataset.cat; idRender(); return; }
+      var b = e.target.closest("[data-ia]"); if (!b) return; var a = b.dataset.ia, key = b.dataset.key;
+      if (a === "close") closeIndDlg();
+      else if (a === "add") {
+        if (b.dataset.kind === "b") { var cb = idBuiltKey(key); if (cb) { if (cb.checked) { toast("Indikator sudah aktif"); } else cb.click(); } }
+        else { xAdd(key); toast(XIND[key].n + " ditambahkan"); }
+        idRender();
+      } else if (a === "del") {
+        if (b.dataset.kind === "b") { var cb2 = idBuiltKey(key); if (cb2 && cb2.checked) cb2.click(); } else xRemove(+key);
+        idRender();
+      } else if (a === "cfg") { closeIndDlg(); if (b.dataset.kind === "b") openInd(key); else openXSet(+key); }
+    });
+    idEl.addEventListener("input", function (e) { if (e.target.id === "idq") { idQ = e.target.value; idRender(); } });
+    idEl.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); closeIndDlg(); } });
+  }
+  idCat = cat || "all"; idQ = ""; $("#idq", idEl).value = ""; idEl.hidden = false; idRender(); $("#idq", idEl).focus();
+}
+
+/* pengaturan satu indikator tambahan */
+function openXSet(u) {
+  var x = S.xi.filter(function (q) { return q.u === u; })[0]; if (!x) return;
+  var d = XIND[x.id], P = xParams(x), r = XR[x.u] || { plots: [] }, el = document.createElement("div");
+  el.className = "modal"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", "Pengaturan " + d.n);
+  var body = Object.keys(d.p).map(function (k) { return "<label class=\"xs\">" + k + "<input type=\"number\" step=\"any\" data-p=\"" + k + "\" value=\"" + P[k] + "\"></label>"; }).join("");
+  body += r.plots.map(function (p, i) { return "<label class=\"xs\">Warna: " + p.n + "<input type=\"color\" data-c=\"" + i + "\" value=\"" + xCol(x, p, i) + "\"></label>"; }).join("");
+  if (!body) body = "<p class=\"idnone\">Indikator ini tidak punya parameter.</p>";
+  el.innerHTML = "<div class=\"box xsbox\"><div class=\"hd\"><b>" + d.n + "</b></div><div class=\"xsb\">" + body + "</div><div class=\"hd xsft\"><button type=\"button\" class=\"btn\" data-xs=\"del\">Hapus</button><span style=\"flex:1\"></span><button type=\"button\" class=\"btn\" data-xs=\"cancel\">Batal</button><button type=\"button\" class=\"btn sd-ok\" data-xs=\"ok\">Ok</button></div></div>";
+  document.body.appendChild(el);
+  function done() { el.remove(); }
+  el.addEventListener("click", function (e) {
+    if (e.target === el) { done(); return; }
+    var b = e.target.closest("[data-xs]"); if (!b) return;
+    if (b.dataset.xs === "ok") {
+      x.p = {}; x.c = x.c || {};
+      $$("[data-p]", el).forEach(function (i) { var v = parseFloat(i.value); if (isFinite(v) && v > 0) x.p[i.dataset.p] = v; });
+      $$("[data-c]", el).forEach(function (i) { x.c[i.dataset.c] = i.value; });
+      calcX(); legendHtml = null; draw(); save(); done();
+    } else if (b.dataset.xs === "del") { xRemove(x.u); done(); } else done();
+  });
+  el.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); done(); } else if (e.key === "Enter" && e.target.tagName === "INPUT") $("[data-xs=ok]", el).click(); });
+  var f = $("input", el); if (f) f.focus();
+}
+
+/* klik pada chip legenda indikator tambahan */
+$("#legend").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-xa]"); if (!b) return; var chip = b.closest("[data-xu]"), u = +chip.dataset.xu, x = S.xi.filter(function (q) { return q.u === u; })[0]; if (!x) return;
+  if (b.dataset.xa === "eye") { x.h = !x.h; legendHtml = null; draw(); save(); } else if (b.dataset.xa === "set") openXSet(u); else xRemove(u);
+});
+$("#legend").addEventListener("dblclick", function (e) { var c = e.target.closest("[data-xu]"); if (c) openXSet(+c.dataset.xu); });
+
+$("#qsBtn").addEventListener("click", function () { openSearch("sym"); });
 /* ---------- real market data: free providers, no API keys ---------- */
 var SRCN = { auto: "Auto (best available)", binance: "Binance", coinbase: "Coinbase Exchange", kraken: "Kraken", upstox: "Upstox (India)", coingecko: "CoinGecko", yahoo: "Yahoo Finance" };
 var FLD = { yahoo: "y", binance: "b", coinbase: "cb", kraken: "k", upstox: "u", coingecko: "cg" };
@@ -1929,7 +2359,7 @@ function buildCmp() {
 }
 var pendSpan = 0;
 function applySpan(sec) { var last = bars[bars.length - 1].t, i0 = bars.length - 1; while (i0 > 0 && bars[i0 - 1].t >= last - sec) i0--; S.barW = Math.max(1.5, Math.min(40, (W - R - 12) / (bars.length - i0 + 3))); S.off = 3; }
-function afterLoad() { recalc(); genEvents(); renderEvents(); buildCmp(); resetView(); if (pendSpan && bars.length) { applySpan(pendSpan); pendSpan = 0; } legendHtml = ""; wrap.style.opacity = ""; syncUI(); header(); renderInfo(); draw(); }
+function afterLoad() { recalc(); genEvents(); renderEvents(); buildCmp(); resetView(); if (pendSpan && bars.length) { applySpan(pendSpan); pendSpan = 0; } legendHtml = null; wrap.style.opacity = ""; syncUI(); header(); renderInfo(); draw(); }
 function loadData() {
   var seq = ++loadSeq, sym = S.sym, tf = S.tf;
   closeWS(); setFeed("Loading " + sym.label, "wait");
@@ -2016,7 +2446,7 @@ function setLive(s, p) {
   var prev = live[s.id]; live[s.id] = p; ready[s.id] = true;
   S.alerts.forEach(function (a) {
     if (a.sym === s.id && a.active && prev != null && ((prev < a.price && p >= a.price) || (prev > a.price && p <= a.price))) {
-      a.active = false; toast("Alert: " + s.label + " crossed " + fmt(a.price, s.dec)); renderAlerts(); save();
+      a.active = false; toast("Alert: " + s.label + " crossed " + fmt(a.price, s.dec)); if (S.sty.aSnd !== false) { try { var ac = new (window.AudioContext || window.webkitAudioContext)(), os = ac.createOscillator(), gn = ac.createGain(); os.frequency.value = 880; gn.gain.value = 0.05; os.connect(gn); gn.connect(ac.destination); os.start(); os.stop(ac.currentTime + 0.25); } catch (e) { /* audio unavailable */ } } renderAlerts(); save();
     }
   });
 }
@@ -2142,12 +2572,12 @@ function dlgOpen(o) {
     tabs.innerHTML = o.tabs.map(function (t, i) { return "<button type='button' role='tab' data-t='" + i + "' aria-selected='" + (i === cur) + "'>" + t[0] + "</button>"; }).join("");
     body.innerHTML = o.tabs[cur][1](); $(".sd-l", el).innerHTML = o.foot ? o.foot() : "";
   }
-  function apply(f, v, again) { o.set(f, v); legendHtml = ""; syncUI(); draw(); if (again) paint(); }
+  function apply(f, v, again) { o.set(f, v); legendHtml = null; syncUI(); draw(); if (again) paint(); }
   el.addEventListener("click", function (e) {
     var b = e.target.closest("button"); if (!b) return;
     if (b.dataset.t) { cur = +b.dataset.t; paint(); }
     else if (b.dataset.a === "ok") { save(); dlgClose(); }
-    else if (b.dataset.a === "cancel") { o.revert(); legendHtml = ""; syncUI(); renderObjs(); syncSel(); draw(); dlgClose(); }
+    else if (b.dataset.a === "cancel") { o.revert(); legendHtml = null; syncUI(); renderObjs(); syncSel(); draw(); dlgClose(); }
     else if (b.dataset.f) apply(b.dataset.f, b.dataset.v, true);
   });
   function field(e) {
@@ -2230,8 +2660,9 @@ function openInd(k) {
   });
 }
 
-var BOOLS = { pc: 1, body: 1, border: 1, wick: 1, lastLine: 1, lastLabel: 1, cd: 1, gh: 1, gv: 1, sSym: 1, sOhlc: 1, sChg: 1, sVol: 1, sInd: 1, wm: 1 };
+var BOOLS = { pc: 1, body: 1, border: 1, wick: 1, lastLine: 1, lastLabel: 1, cd: 1, gh: 1, gv: 1, sSym: 1, sOhlc: 1, sChg: 1, sVol: 1, sInd: 1, wm: 1, tPos: 1, tBuy: 1, aLn: 1, aSnd: 1 };
 function applyStatus() {
+  var od0 = $(".order"); if (od0) od0.style.display = S.sty.tBuy === false ? "none" : "";
   var q = S.sty, r = $("#readout"), l = $("#legend");
   r.classList.toggle("no-sym", q.sSym === false); r.classList.toggle("no-ohlc", q.sOhlc === false); r.classList.toggle("no-chg", q.sChg === false); r.classList.toggle("no-vol", q.sVol === false); l.classList.toggle("no-ind", q.sInd === false);
 }
@@ -2251,7 +2682,7 @@ function openChart(tn) {
   var th0 = document.documentElement.getAttribute("data-theme"), o0 = JSON.stringify({ type: S.type, sty: S.sty, scale: S.scale, tz: S.tz, grid: S.grid, col: S.colOv, invert: S.invert, lockScale: S.lockScale, hilo: S.hilo, events: S.events }), Q = S.sty;
   var prec = [["", "Default"]].concat([0, 1, 2, 3, 4, 5, 6, 7, 8].map(function (n) { return [n, n]; }));
   dlgOpen({
-    title: "Settings \u2013 " + S.sym.label, tab: Math.max(0, ["Symbol", "Status line", "Scales and lines", "Canvas"].indexOf(tn)),
+    title: "Settings \u2013 " + S.sym.label, tab: Math.max(0, ["Symbol", "Status line", "Scales and lines", "Canvas", "Trading", "Alerts", "Events"].indexOf(tn)),
     tabs: [
       ["Symbol", function () {
         var C0 = colors();
@@ -2277,6 +2708,15 @@ function openChart(tn) {
           rowH("Grid lines", chkH("gh", Q.gh !== false && S.grid, "Horizontal") + chkH("gv", Q.gv !== false && S.grid, "Vertical") + colH("c:grid", C0.grid)) +
           rowH("Crosshair", colH("c:cross", C0.cross || C0.muted) + btnsH("cls", [0, 1, 2], Q.cls || 0, ["Dashed", "Solid", "Dotted"])) + rowH("Scale text", colH("c:muted", C0.muted)) +
           rowH("Defaults", "<button type='button' class='btn' data-f='rcan'>Reset canvas</button>");
+      }],
+      ["Trading", function () {
+        return rowH("Paper trading", chkH("tPos", Q.tPos !== false, "Show open position line on chart") + chkH("tBuy", Q.tBuy !== false, "Show the order ticket (Buy / Sell)"));
+      }],
+      ["Alerts", function () {
+        return rowH("Alerts", chkH("aLn", Q.aLn !== false, "Show alert lines on chart") + chkH("aSnd", Q.aSnd !== false, "Play a sound when an alert triggers"));
+      }],
+      ["Events", function () {
+        return rowH("Events", chkH("evm", S.events, "Show economic events on the time axis"));
       }]
     ],
     set: function (f, v) {
@@ -2292,7 +2732,7 @@ function openChart(tn) {
       else if (f === "theme") document.documentElement.setAttribute("data-theme", v);
       else if (f === "rsty") { S.yMan = false; S.yScale = 1; S.yShift = 0; } else if (f === "rview") resetView();
       else if (f === "rcan") { delete S.colOv.bg; delete S.colOv.grid; delete S.colOv.muted; delete S.colOv.cross; S.sty.gh = S.sty.gv = true; S.sty.cls = 0; S.sty.wm = true; S.grid = true; }
-      applyStatus(); syncPops();
+      applyStatus(); syncPops(); var od = $(".order"); if (od) od.style.display = S.sty.tBuy === false ? "none" : "";
     },
     revert: function () { var o = JSON.parse(o0); S.type = o.type; S.sty = o.sty; S.scale = o.scale; S.tz = o.tz; S.grid = o.grid; S.colOv = o.col; S.invert = o.invert; S.lockScale = o.lockScale; S.lockR = null; S.hilo = o.hilo; S.events = o.events; document.documentElement.setAttribute("data-theme", th0); applyPrec(); applyStatus(); header(); renderInfo(); syncPops(); }
   });
@@ -2302,6 +2742,7 @@ function hitInd(x, y) {
   if (x >= G.pw) return null;
   if (y < G.mainH) {
     var fi = Math.max(0, Math.min(bars.length - 1, Math.round(G.fiAtX(x)))), L = { sma: ["sma"], ema: ["ema"], vwap: ["vwap"], bb: ["bbU", "bbL"], ichi: ["spA", "spB", "tenkan", "kijun"], st: ["st"] }, k, j, a;
+    var xh = null; S.xi.forEach(function (x) { var r = XR[x.u]; if (xh || !r || x.h || !XIND[x.id].ov) return; r.plots.forEach(function (p) { if (!xh && p.d[fi] != null && Math.abs(G.Yp(p.d[fi]) - y) < 8) xh = "x:" + x.u; }); }); if (xh) return xh;
     for (k in L) if (S.ind[k]) for (j = 0; j < L[k].length; j++) { a = ind[L[k][j]]; if (a && a[fi] != null && Math.abs(G.Yp(a[fi]) - y) < 8) return k; }
     return null;
   }
@@ -2319,7 +2760,7 @@ function dbl(x, y) {
   if (x > G.pw) { if (y < G.ph) { S.yMan = false; S.yScale = 1; S.yShift = 0; draw(); toast("Price scale reset"); } return; }
   if (y > G.ph) { resetView(); draw(); toast("Chart view reset"); return; }
   var h = hitTest(x, y); if (h) { openDrawing(h.id); return; }
-  var k = hitInd(x, y); if (k) { if (k === "pine") togglePine(true); else openInd(k); return; }
+  var k = hitInd(x, y); if (k) { if (k === "pine") togglePine(true); else if (k.indexOf("x:") === 0) openXSet(+k.slice(2)); else openInd(k); return; }
   if (candleHit(x, y)) { openChart("Symbol"); return; }
   if (S.ind.vol && y > G.mainH * 0.8 && y < G.mainH) { openInd("vol"); return; }
   openChart("Canvas");
@@ -2337,7 +2778,7 @@ setTimeout(function () {
 
 $("#legend").addEventListener("click", function (e) {
   var b = e.target.closest("[data-lt]"); if (!b) return;
-  if (b.dataset.lt === "eye") { S.ihide[b.dataset.k] = !S.ihide[b.dataset.k]; legendHtml = ""; draw(); save(); } else if (b.dataset.lt === "cfg") openInd(b.dataset.k); else { S.ind[b.dataset.k] = false; legendHtml = ""; syncUI(); draw(); save(); }
+  if (b.dataset.lt === "eye") { S.ihide[b.dataset.k] = !S.ihide[b.dataset.k]; legendHtml = null; draw(); save(); } else if (b.dataset.lt === "cfg") openInd(b.dataset.k); else { S.ind[b.dataset.k] = false; legendHtml = null; syncUI(); draw(); save(); }
 });
 /* legend chip tool styles live in the main stylesheet */
 /* ---------- Pine editor panel wiring ---------- */
@@ -2348,7 +2789,7 @@ function togglePine(show) {
 }
 $("#pineBtn").addEventListener("click", function () { togglePine(); });
 $("#pineClose").addEventListener("click", function () { togglePine(false); });
-$("#pineRun").addEventListener("click", function () { S.pine = { src: $("#pineCode").value }; recalc(); legendHtml = ""; draw(); save(); });
+$("#pineRun").addEventListener("click", function () { S.pine = { src: $("#pineCode").value }; recalc(); legendHtml = null; draw(); save(); });
 $("#pineClear").addEventListener("click", function () { S.pine = null; recalc(); draw(); save(); });
 $("#pineSample").addEventListener("click", function () { var el = $("#pineCode"); el.value = el.value === PINE_SAMPLE ? PINE_SAMPLE2 : PINE_SAMPLE; });
 $("#pineCode").value = S.pine && S.pine.src ? S.pine.src : PINE_SAMPLE;

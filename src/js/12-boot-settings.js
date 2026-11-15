@@ -97,12 +97,12 @@ function dlgOpen(o) {
     tabs.innerHTML = o.tabs.map(function (t, i) { return "<button type='button' role='tab' data-t='" + i + "' aria-selected='" + (i === cur) + "'>" + t[0] + "</button>"; }).join("");
     body.innerHTML = o.tabs[cur][1](); $(".sd-l", el).innerHTML = o.foot ? o.foot() : "";
   }
-  function apply(f, v, again) { o.set(f, v); legendHtml = ""; syncUI(); draw(); if (again) paint(); }
+  function apply(f, v, again) { o.set(f, v); legendHtml = null; syncUI(); draw(); if (again) paint(); }
   el.addEventListener("click", function (e) {
     var b = e.target.closest("button"); if (!b) return;
     if (b.dataset.t) { cur = +b.dataset.t; paint(); }
     else if (b.dataset.a === "ok") { save(); dlgClose(); }
-    else if (b.dataset.a === "cancel") { o.revert(); legendHtml = ""; syncUI(); renderObjs(); syncSel(); draw(); dlgClose(); }
+    else if (b.dataset.a === "cancel") { o.revert(); legendHtml = null; syncUI(); renderObjs(); syncSel(); draw(); dlgClose(); }
     else if (b.dataset.f) apply(b.dataset.f, b.dataset.v, true);
   });
   function field(e) {
@@ -185,8 +185,9 @@ function openInd(k) {
   });
 }
 
-var BOOLS = { pc: 1, body: 1, border: 1, wick: 1, lastLine: 1, lastLabel: 1, cd: 1, gh: 1, gv: 1, sSym: 1, sOhlc: 1, sChg: 1, sVol: 1, sInd: 1, wm: 1 };
+var BOOLS = { pc: 1, body: 1, border: 1, wick: 1, lastLine: 1, lastLabel: 1, cd: 1, gh: 1, gv: 1, sSym: 1, sOhlc: 1, sChg: 1, sVol: 1, sInd: 1, wm: 1, tPos: 1, tBuy: 1, aLn: 1, aSnd: 1 };
 function applyStatus() {
+  var od0 = $(".order"); if (od0) od0.style.display = S.sty.tBuy === false ? "none" : "";
   var q = S.sty, r = $("#readout"), l = $("#legend");
   r.classList.toggle("no-sym", q.sSym === false); r.classList.toggle("no-ohlc", q.sOhlc === false); r.classList.toggle("no-chg", q.sChg === false); r.classList.toggle("no-vol", q.sVol === false); l.classList.toggle("no-ind", q.sInd === false);
 }
@@ -206,7 +207,7 @@ function openChart(tn) {
   var th0 = document.documentElement.getAttribute("data-theme"), o0 = JSON.stringify({ type: S.type, sty: S.sty, scale: S.scale, tz: S.tz, grid: S.grid, col: S.colOv, invert: S.invert, lockScale: S.lockScale, hilo: S.hilo, events: S.events }), Q = S.sty;
   var prec = [["", "Default"]].concat([0, 1, 2, 3, 4, 5, 6, 7, 8].map(function (n) { return [n, n]; }));
   dlgOpen({
-    title: "Settings \u2013 " + S.sym.label, tab: Math.max(0, ["Symbol", "Status line", "Scales and lines", "Canvas"].indexOf(tn)),
+    title: "Settings \u2013 " + S.sym.label, tab: Math.max(0, ["Symbol", "Status line", "Scales and lines", "Canvas", "Trading", "Alerts", "Events"].indexOf(tn)),
     tabs: [
       ["Symbol", function () {
         var C0 = colors();
@@ -232,6 +233,15 @@ function openChart(tn) {
           rowH("Grid lines", chkH("gh", Q.gh !== false && S.grid, "Horizontal") + chkH("gv", Q.gv !== false && S.grid, "Vertical") + colH("c:grid", C0.grid)) +
           rowH("Crosshair", colH("c:cross", C0.cross || C0.muted) + btnsH("cls", [0, 1, 2], Q.cls || 0, ["Dashed", "Solid", "Dotted"])) + rowH("Scale text", colH("c:muted", C0.muted)) +
           rowH("Defaults", "<button type='button' class='btn' data-f='rcan'>Reset canvas</button>");
+      }],
+      ["Trading", function () {
+        return rowH("Paper trading", chkH("tPos", Q.tPos !== false, "Show open position line on chart") + chkH("tBuy", Q.tBuy !== false, "Show the order ticket (Buy / Sell)"));
+      }],
+      ["Alerts", function () {
+        return rowH("Alerts", chkH("aLn", Q.aLn !== false, "Show alert lines on chart") + chkH("aSnd", Q.aSnd !== false, "Play a sound when an alert triggers"));
+      }],
+      ["Events", function () {
+        return rowH("Events", chkH("evm", S.events, "Show economic events on the time axis"));
       }]
     ],
     set: function (f, v) {
@@ -247,7 +257,7 @@ function openChart(tn) {
       else if (f === "theme") document.documentElement.setAttribute("data-theme", v);
       else if (f === "rsty") { S.yMan = false; S.yScale = 1; S.yShift = 0; } else if (f === "rview") resetView();
       else if (f === "rcan") { delete S.colOv.bg; delete S.colOv.grid; delete S.colOv.muted; delete S.colOv.cross; S.sty.gh = S.sty.gv = true; S.sty.cls = 0; S.sty.wm = true; S.grid = true; }
-      applyStatus(); syncPops();
+      applyStatus(); syncPops(); var od = $(".order"); if (od) od.style.display = S.sty.tBuy === false ? "none" : "";
     },
     revert: function () { var o = JSON.parse(o0); S.type = o.type; S.sty = o.sty; S.scale = o.scale; S.tz = o.tz; S.grid = o.grid; S.colOv = o.col; S.invert = o.invert; S.lockScale = o.lockScale; S.lockR = null; S.hilo = o.hilo; S.events = o.events; document.documentElement.setAttribute("data-theme", th0); applyPrec(); applyStatus(); header(); renderInfo(); syncPops(); }
   });
@@ -257,6 +267,7 @@ function hitInd(x, y) {
   if (x >= G.pw) return null;
   if (y < G.mainH) {
     var fi = Math.max(0, Math.min(bars.length - 1, Math.round(G.fiAtX(x)))), L = { sma: ["sma"], ema: ["ema"], vwap: ["vwap"], bb: ["bbU", "bbL"], ichi: ["spA", "spB", "tenkan", "kijun"], st: ["st"] }, k, j, a;
+    var xh = null; S.xi.forEach(function (x) { var r = XR[x.u]; if (xh || !r || x.h || !XIND[x.id].ov) return; r.plots.forEach(function (p) { if (!xh && p.d[fi] != null && Math.abs(G.Yp(p.d[fi]) - y) < 8) xh = "x:" + x.u; }); }); if (xh) return xh;
     for (k in L) if (S.ind[k]) for (j = 0; j < L[k].length; j++) { a = ind[L[k][j]]; if (a && a[fi] != null && Math.abs(G.Yp(a[fi]) - y) < 8) return k; }
     return null;
   }
@@ -274,7 +285,7 @@ function dbl(x, y) {
   if (x > G.pw) { if (y < G.ph) { S.yMan = false; S.yScale = 1; S.yShift = 0; draw(); toast("Price scale reset"); } return; }
   if (y > G.ph) { resetView(); draw(); toast("Chart view reset"); return; }
   var h = hitTest(x, y); if (h) { openDrawing(h.id); return; }
-  var k = hitInd(x, y); if (k) { if (k === "pine") togglePine(true); else openInd(k); return; }
+  var k = hitInd(x, y); if (k) { if (k === "pine") togglePine(true); else if (k.indexOf("x:") === 0) openXSet(+k.slice(2)); else openInd(k); return; }
   if (candleHit(x, y)) { openChart("Symbol"); return; }
   if (S.ind.vol && y > G.mainH * 0.8 && y < G.mainH) { openInd("vol"); return; }
   openChart("Canvas");
@@ -292,7 +303,7 @@ setTimeout(function () {
 
 $("#legend").addEventListener("click", function (e) {
   var b = e.target.closest("[data-lt]"); if (!b) return;
-  if (b.dataset.lt === "eye") { S.ihide[b.dataset.k] = !S.ihide[b.dataset.k]; legendHtml = ""; draw(); save(); } else if (b.dataset.lt === "cfg") openInd(b.dataset.k); else { S.ind[b.dataset.k] = false; legendHtml = ""; syncUI(); draw(); save(); }
+  if (b.dataset.lt === "eye") { S.ihide[b.dataset.k] = !S.ihide[b.dataset.k]; legendHtml = null; draw(); save(); } else if (b.dataset.lt === "cfg") openInd(b.dataset.k); else { S.ind[b.dataset.k] = false; legendHtml = null; syncUI(); draw(); save(); }
 });
 /* legend chip tool styles live in the main stylesheet */
 /* ---------- Pine editor panel wiring ---------- */
@@ -303,7 +314,7 @@ function togglePine(show) {
 }
 $("#pineBtn").addEventListener("click", function () { togglePine(); });
 $("#pineClose").addEventListener("click", function () { togglePine(false); });
-$("#pineRun").addEventListener("click", function () { S.pine = { src: $("#pineCode").value }; recalc(); legendHtml = ""; draw(); save(); });
+$("#pineRun").addEventListener("click", function () { S.pine = { src: $("#pineCode").value }; recalc(); legendHtml = null; draw(); save(); });
 $("#pineClear").addEventListener("click", function () { S.pine = null; recalc(); draw(); save(); });
 $("#pineSample").addEventListener("click", function () { var el = $("#pineCode"); el.value = el.value === PINE_SAMPLE ? PINE_SAMPLE2 : PINE_SAMPLE; });
 $("#pineCode").value = S.pine && S.pine.src ? S.pine.src : PINE_SAMPLE;

@@ -34,6 +34,7 @@ function pitchLines(a, b, c) {
 function stopOf(d) { return d.p1.p - (d.p2.p - d.p1.p); }
 function drawExtra(d, C, pv, a, b) {
   var t = d.type, c3 = d.p3 ? pxOf(d.p3) : null, col = d.cx || C[d.c || "acc"] || C.acc, i, p;
+  if (XT[t]) { drawXT(d, C, a, b, col); return; }
   function seg(p0, p1) { ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke(); }
   if (t === "arrow" && b) {
     seg(a, b); var an = Math.atan2(b.y - a.y, b.x - a.x), hl = 11;
@@ -82,6 +83,7 @@ function drawExtra(d, C, pv, a, b) {
 }
 function hitExtra(d, a, b, x, y) {
   var t = d.type, c3 = d.p3 ? pxOf(d.p3) : null, i;
+  if (XT[t]) return hitXT(d, a, b, x, y);
   if (t === "arrow") return dSeg(x, y, a, b) < TOL;
   if (t === "brush") { var pp = (d.pts || []).map(pxOf); for (i = 1; i < pp.length; i++) if (dSeg(x, y, pp[i - 1], pp[i]) < TOL) return true; return false; }
   if (t === "ellipse" || t === "fibext") return x >= Math.min(a.x, b.x) - 4 && x <= Math.max(a.x, b.x) + 4 && y >= Math.min(a.y, b.y) - 4 && y <= Math.max(a.y, b.y) + 4;
@@ -199,7 +201,7 @@ function drawDrawings(C) {
 
   /* alerts + position */
   S.alerts.forEach(function (al) {
-    if (al.sym !== S.sym.id || !al.active) return;
+    if (al.sym !== S.sym.id || !al.active || S.sty.aLn === false) return;
     var y = G.Yp(al.price); ctx.strokeStyle = C.acc; ctx.setLineDash([2, 4]); ctx.beginPath(); ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(G.pw, Math.round(y) + 0.5); ctx.stroke(); ctx.setLineDash([]);
     ctx.font = "11px " + css("--font-mono"); ctx.fillStyle = C.acc; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.fillText("Alert", 8, y - 3);
     G.tags.push({ y: y, text: fmtAxis(al.price), bg: C.acc, fg: C.bg });

@@ -56,7 +56,7 @@ function tfByKey(k) {
 }
 function tfLabel(t) { return t.n + " " + TUN[t.u][t.n === 1 ? 0 : 1]; }
 var TF_D = tfByKey("1D"), TF_H = tfByKey("1H");
-var TYPES = [["candles", "Candles"], ["hollow", "Hollow candles"], ["vcandles", "Volume candles"], ["bars", "OHLC bars"], ["line", "Line"], ["linem", "Line with markers"], ["step", "Step line"], ["area", "Area"], ["hlcarea", "HLC area"], ["baseline", "Baseline"], ["columns", "Columns"], ["highlow", "High-low"], ["ha", "Heikin Ashi"]];
+var TYPES = [["candles", "Candles"], ["hollow", "Hollow candles"], ["vcandles", "Volume candles"], ["bars", "OHLC bars"], ["line", "Line"], ["linem", "Line with markers"], ["step", "Step line"], ["area", "Area"], ["hlcarea", "HLC area"], ["baseline", "Baseline"], ["columns", "Columns"], ["highlow", "High-low"], ["ha", "Heikin Ashi"], ["renko", "Renko"], ["lbreak", "Line break"], ["kagi", "Kagi"], ["pnf", "Point & figure"], ["range", "Range"]];
 var INDS = [["sma", "SMA 20"], ["ema", "EMA 50"], ["bb", "Bollinger Bands 20, 2"], ["vwap", "VWAP"], ["vol", "Volume"], ["rsi", "RSI 14"], ["macd", "MACD 12 26 9"], ["stoch", "Stochastic"], ["atr", "ATR"], ["adx", "ADX / DMI"], ["st", "Supertrend x3"], ["ichi", "Ichimoku 9 26 52"]];
 var LNAME = { sma: "SMA", ema: "EMA", bb: "Bollinger Bands", rsi: "RSI", stoch: "Stochastic", atr: "ATR", adx: "ADX / DMI", st: "Supertrend x3" };
 var LENK = { sma: "sma", ema: "ema", bb: "bb", rsi: "rsi", stoch: "stoch", atr: "atr", adx: "adx", st: "st" };
@@ -78,7 +78,7 @@ function save() {
   clearTimeout(saveT);
   saveT = setTimeout(function () {
     try {
-      localStorage.setItem(KEY, JSON.stringify({ sym: S.sym.id, tf: S.tf.k, type: S.type, scale: S.scale, invert: S.invert, lockScale: S.lockScale, hilo: S.hilo, events: S.events, ind: S.ind, cmp: S.cmp, cmpP: S.cmpP, cmpT: S.cmpT, colOv: S.colOv, iw: S.iw, ihide: S.ihide, sty: S.sty, magnet: S.magnet, grid: S.grid, tz: S.tz, src: srcPref, len: S.len, ctf: CTF.map(function (t) { return t.k; }), ftf: S.ftf, gcur: S.gcur, keep: S.keep, emojiCh: S.emojiCh,
+      localStorage.setItem(KEY, JSON.stringify({ sym: S.sym.id, tf: S.tf.k, type: S.type, scale: S.scale, invert: S.invert, lockScale: S.lockScale, hilo: S.hilo, events: S.events, ind: S.ind, xi: S.xi, cmp: S.cmp, cmpP: S.cmpP, cmpT: S.cmpT, colOv: S.colOv, iw: S.iw, ihide: S.ihide, sty: S.sty, magnet: S.magnet, grid: S.grid, tz: S.tz, src: srcPref, len: S.len, ctf: CTF.map(function (t) { return t.k; }), ftf: S.ftf, gcur: S.gcur, keep: S.keep, emojiCh: S.emojiCh,
         drawings: S.drawings, alerts: S.alerts, watch: S.watch, acc: S.acc, pine: S.pine, theme: document.documentElement.getAttribute("data-theme") || "" }));
     } catch (e) { /* storage unavailable */ }
   }, 300);

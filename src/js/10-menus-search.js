@@ -52,16 +52,16 @@ document.addEventListener("click", function (e) { if (!e.target.closest(".pop"))
 function buildMenus() {
   var h = ""; TYPES.forEach(function (t) { h += "<label><input type='radio' name='ctype' value='" + t[0] + "'> " + t[1] + "</label>"; });
   $("#typePop").innerHTML = h; wireDd($("#typeBtn"), $("#typePop"));
-  $("#typePop").addEventListener("change", function (e) { S.type = e.target.value; syncUI(); draw(); save(); });
+  $("#typePop").addEventListener("change", function (e) { S.type = e.target.value; syncUI(); draw(); save(); closeAll(); });
   h = ""; INDS.forEach(function (t) { var nm = LNAME[t[0]] || t[1]; h += "<label><input type='checkbox' data-k='" + t[0] + "'> " + nm + (LENK[t[0]] ? " <input type='number' class='len' title='Length' data-len='" + LENK[t[0]] + "' min='2' max='500' value='" + S.len[LENK[t[0]]] + "'>" : "") + "</label>"; });
   var C0 = colors(), cs = "";
   [["i1", "SMA / MACD"], ["i2", "EMA / RSI"], ["i3", "Bollinger / ADX"], ["i4", "VWAP / ATR"]].forEach(function (c) { cs += "<label>" + c[1] + " <input type='color' data-col='" + c[0] + "' value='" + C0[c[0]] + "' style='margin-left:auto;width:34px;height:22px;padding:0;border:0;background:none'></label>"; });
-  $("#indPop").innerHTML = "<div style='padding:4px 8px'><input id='indQ' type='search' placeholder='Search indicators' aria-label='Search indicators' style='width:100%;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:5px 8px'></div>" + h + "<div class='sep'></div><small>Indicator colors</small>" + cs + "<button class='opt' type='button' id='colReset'>Reset colors</button>"; wireDd($("#indBtn"), $("#indPop"));
+  $("#indPop").innerHTML = "<div style='padding:4px 8px'><input id='indQ' type='search' placeholder='Search indicators' aria-label='Search indicators' style='width:100%;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:5px 8px'></div>" + h + "<div class='sep'></div><small>Indicator colors</small>" + cs + "<button class='opt' type='button' id='colReset'>Reset colors</button>"; $("#indBtn").addEventListener("click", function (e) { e.stopPropagation(); closeAll(); hideFly(); openIndDlg(); });
   $("#indQ").addEventListener("input", function () { var q = this.value.toLowerCase(); $$("#indPop label").forEach(function (l) { if (!l.querySelector("[data-k]")) return; l.style.display = l.textContent.toLowerCase().indexOf(q) < 0 ? "none" : ""; }); });
-  $("#indPop").addEventListener("input", function (e) { if (!e.target.dataset.col) return; S.colOv[e.target.dataset.col] = e.target.value; legendHtml = ""; draw(); save(); });
+  $("#indPop").addEventListener("input", function (e) { if (!e.target.dataset.col) return; S.colOv[e.target.dataset.col] = e.target.value; legendHtml = null; draw(); save(); });
   $("#colReset").addEventListener("click", function () { S.colOv = {}; $$("#indPop [data-col]").forEach(function (i) { i.value = colors()[i.dataset.col]; }); draw(); save(); });
   $("#indPop").addEventListener("change", function (e) {
-    if (e.target.dataset.len) { S.len[e.target.dataset.len] = Math.max(2, Math.min(500, parseInt(e.target.value, 10) || 14)); e.target.value = S.len[e.target.dataset.len]; recalc(); legendHtml = ""; draw(); save(); return; }
+    if (e.target.dataset.len) { S.len[e.target.dataset.len] = Math.max(2, Math.min(500, parseInt(e.target.value, 10) || 14)); e.target.value = S.len[e.target.dataset.len]; recalc(); legendHtml = null; draw(); save(); return; }
     if (!e.target.dataset.k) return; S.ind[e.target.dataset.k] = e.target.checked; syncUI(); draw(); save();
   });
   h = "<label><input type='checkbox' id='gridChk'> Grid lines</label><label><input type='checkbox' id='hiloChk'> High and low price labels</label><label><input type='checkbox' id='wmChk'> Watermark <span style='color:var(--muted)'>(symbol text in the middle of the chart)</span></label><label><input type='checkbox' id='evChk2'> Event markers on chart</label><div class='row'><label for='tzSel' style='padding:0'>Time zone</label></div><div style='padding:0 8px 6px'><select id='tzSel'>";
@@ -82,13 +82,13 @@ function buildMenus() {
   lyRender();
   $("#lySave").addEventListener("click", function () {
     var n = $("#lyName").value.trim(); if (!n) { toast("Type a layout name first."); return; }
-    var o = lyGet(); o[n] = { sym: S.sym.id, tf: S.tf.k, type: S.type, scale: S.scale, invert: S.invert, hilo: S.hilo, events: S.events, ind: S.ind, len: S.len, cmp: S.cmp, cmpP: S.cmpP, colOv: S.colOv, pine: S.pine }; lySet(o); $("#lyName").value = ""; lyRender(); $("#lySel").value = n; toast("Layout saved.");
+    var o = lyGet(); o[n] = { sym: S.sym.id, tf: S.tf.k, type: S.type, scale: S.scale, invert: S.invert, hilo: S.hilo, events: S.events, ind: S.ind, xi: S.xi, len: S.len, cmp: S.cmp, cmpP: S.cmpP, colOv: S.colOv, pine: S.pine }; lySet(o); $("#lyName").value = ""; lyRender(); $("#lySel").value = n; toast("Layout saved.");
   });
   $("#lyLoad").addEventListener("click", function () {
     var l = lyGet()[$("#lySel").value]; if (!l) return;
     S.sym = N_(l.sym) || S.sym; S.tf = tfByKey(l.tf) || S.tf; S.type = l.type; S.scale = l.scale; S.ind = Object.assign(S.ind, l.ind); S.len = Object.assign(S.len, l.len);
     S.cmp = (l.cmp || []).filter(function (id) { return N_(id) && id !== S.sym.id; }); S.cmpP = (l.cmpP || []).filter(function (id) { return N_(id) && id !== S.sym.id; }); S.colOv = l.colOv || {}; S.range = null; S.sel = null;
-    S.invert = !!l.invert; S.hilo = l.hilo !== false; S.events = l.events !== false; S.pine = l.pine || null;
+    S.xi = (l.xi || []).filter(function (x) { return XIND[x.id]; }).map(function (x) { x.u = ++xUid; return x; }); S.invert = !!l.invert; S.hilo = l.hilo !== false; S.events = l.events !== false; S.pine = l.pine || null;
     if (S.pine) $("#pineCode").value = S.pine.src; recalc();
     $$("#indPop input.len").forEach(function (i) { i.value = S.len[i.dataset.len]; }); $$("#indPop [data-col]").forEach(function (i) { i.value = colors()[i.dataset.col]; });
     closeAll(); setReplay(false); loadData(); header(); watchUpdate(); renderAlerts(); renderTrade(); renderInfo(); $("#qty").value = S.sym.lot; syncSel(); syncUI(); save(); toast("Layout loaded.");

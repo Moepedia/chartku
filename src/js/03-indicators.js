@@ -93,6 +93,8 @@ function recalc() {
     var c = (b.o + b.h + b.l + b.c) / 4, o = k === 0 ? (b.o + b.c) / 2 : (ha[k - 1].o + ha[k - 1].c) / 2;
     ha.push({ t: b.t, o: o, c: c, h: Math.max(b.h, o, c), l: Math.min(b.l, o, c), v: b.v });
   });
+  calcAlt();
+  calcX();
   pineCompute();
 }
 

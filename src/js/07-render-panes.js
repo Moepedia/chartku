@@ -6,6 +6,7 @@ function drawSubs(C) {
     var top = G.mainH + si * G.subH, h = G.subH, padT = 18, ih = h - padT - 4, lo, hi;
     ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(0, top + 0.5); ctx.lineTo(W, top + 0.5); ctx.stroke();
     if (k.indexOf("cmp") === 0) { drawCmpPane(+k.slice(3), top, h, C); return; }
+    if (k.indexOf("x:") === 0) { drawXPane(k.slice(2), top, h, C); return; }
     if (k === "pine") { drawPinePane(top, h, C); return; }
     if (k === "rsi" || k === "stoch") { lo = 0; hi = 100; }
     else if (k === "atr") { var mxa = 1e-9; for (i = G.iL; i <= G.iR; i++) if (ind.atr[i] != null && ind.atr[i] > mxa) mxa = ind.atr[i]; lo = 0; hi = mxa * 1.15; }
@@ -98,7 +99,7 @@ function tagBox(text, x, y, w, bg, fg) {
   ctx.fillStyle = fg; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(text, x + 6, y + 0.5);
 }
 function drawPos(C) {
-  var ps = S.acc.pos[S.sym.id]; if (!ps) return;
+  var ps = S.acc.pos[S.sym.id]; if (!ps || S.sty.tPos === false) return;
   var y = G.Yp(ps.avg); if (!(y > T && y < G.mainH)) return;
   var pnl = (curPrice() - ps.avg) * ps.q, col = pnl >= 0 ? C.up : C.down, txt = (ps.q > 0 ? "LONG " : "SHORT ") + Math.abs(ps.q) + "  " + (pnl >= 0 ? "+" : "") + fmt(pnl, 2);
   ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(G.pw, Math.round(y) + 0.5); ctx.stroke(); ctx.setLineDash([]);
@@ -166,7 +167,7 @@ function draw() {
   }
   G.hovIdx = hovIdx; paintReadout(hovIdx, C);
 }
-var legendHtml = "";
+var legendHtml = null;
 function paintReadout(i, C) {
   var b = bars[i], d = S.sym.dec, up = b.c >= b.o, cls = up ? "up" : "down", ch = b.c - b.o;
   $("#readout").innerHTML = "<span>O<b>" + fmt(b.o, d) + "</b></span><span>H<b>" + fmt(b.h, d) + "</b></span><span>L<b>" + fmt(b.l, d) + "</b></span><span>C<b class=\"" + cls + "\">" + fmt(b.c, d) + "</b></span>" +
@@ -180,6 +181,7 @@ function paintReadout(i, C) {
   if (S.ind.stoch) h += item(C.i1, "Stoch " + S.len.stoch, v(ind.stK, 1) + " / " + v(ind.stD, 1)); if (S.ind.atr) h += item(C.i4, "ATR " + S.len.atr, v(ind.atr));
   if (S.ind.adx) h += item(C.i3, "ADX " + S.len.adx, v(ind.adx, 1)); if (S.ind.st) h += item(C.i3, "Supertrend", v(ind.st)); if (S.ind.ichi) h += item(C.i1, "Ichimoku", v(ind.tenkan) + " / " + v(ind.kijun));
   if (S.ind.macd) h += item(C.i1, "MACD", v(ind.macd, 2) + " / " + v(ind.sig, 2));
+  h += xLegend(i);
   cmpData.forEach(function (c, ci) { var cb = c.bars[i]; if (cb) h += item(C["c" + (ci + 1)], c.sym.label, fmt(cb.c, c.sym.dec)); });
   if (h !== legendHtml) { $("#legend").innerHTML = h; legendHtml = h; }
 }
