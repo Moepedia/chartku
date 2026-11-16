@@ -292,26 +292,6 @@ $("#objList").addEventListener("click", function (e) {
   var b = e.target.closest("button"); if (!b) return;
   if (b.dataset.sel) { S.sel = b.dataset.sel; syncSel(); draw(); } else if (b.dataset.rm) { S.sel = b.dataset.rm; deleteSel(); }
 });
-function syncSel() {
-  renderObjs();
-  var bar = $("#selbar"), d = S.sel ? getD(S.sel) : null;
-  if (!d) { bar.hidden = true; return; }
-  var h = ""; PALETTE.forEach(function (c) { h += "<button type='button' class='sw' data-c='" + c + "' aria-label='Color " + c + "' aria-pressed='" + (d.c === c) + "' style='background:var(" + SWATCH[c] + ")'></button>"; });
-  h += "<button type='button' class='btn' data-act='cfg'>Settings</button><button type='button' class='btn' data-act='ls'>" + ["Solid", "Dashed", "Dotted"][d.ls || 0] + "</button><button type='button' class='btn' data-act='dup'>Clone</button><button type='button' class='btn' data-act='w'>Width " + (d.w || 1.5) + "</button><button type='button' class='btn' data-act='lock' aria-pressed='" + !!d.lock + "'>" + (d.lock ? "Unlock" : "Lock") + "</button><button type='button' class='btn' data-act='del'>Delete</button>";
-  bar.innerHTML = h; bar.hidden = false;
-}
-$("#selbar").addEventListener("click", function (e) {
-  var b = e.target.closest("button"), d = S.sel ? getD(S.sel) : null; if (!b || !d) return;
-  if (b.dataset.act === "cfg") { openDrawing(S.sel); return; }
-  if (b.dataset.act !== "del") snap();
-  if (b.dataset.c) d.c = b.dataset.c;
-  else if (b.dataset.act === "w") d.w = d.w === 1.5 ? 3 : d.w === 3 ? 1 : 1.5;
-  else if (b.dataset.act === "ls") d.ls = ((d.ls || 0) + 1) % 3;
-  else if (b.dataset.act === "lock") d.lock = !d.lock;
-  else if (b.dataset.act === "dup") { var n = JSON.parse(JSON.stringify(d)); n.id = "d" + Date.now() + Math.floor(Math.random() * 1000); ["p1", "p2", "p3"].forEach(function (k) { if (n[k]) n[k].p *= 1.002; }); S.drawings[S.sym.id].push(n); S.sel = n.id; }
-  else if (b.dataset.act === "del") deleteSel();
-  syncSel(); draw(); save();
-});
 function deleteSel() { if (!S.sel) return; snap(); S.drawings[S.sym.id] = (S.drawings[S.sym.id] || []).filter(function (d) { return d.id !== S.sel; }); S.sel = null; syncSel(); draw(); save(); }
 var txtPt = null;
 function showTxt(x, y, pt) { var el = $("#txtIn"); txtPt = pt; el.value = ""; el.style.left = Math.min(x, W - 180) + "px"; el.style.top = y + "px"; el.hidden = false; setTimeout(function () { el.focus(); }, 0); }

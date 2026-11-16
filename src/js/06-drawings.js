@@ -134,6 +134,10 @@ function wireExtras() {
 
 function drawOne(d, C, preview) {
   if (d.hide || (d.only && d.only !== S.tf.k)) return;
+  drawOne0(d, C, preview);
+  if (LINE_T[d.type] && d.p2) { var lc = d.cx || C[d.c || "acc"] || C.acc; ctx.strokeStyle = lc; ctx.fillStyle = lc; ctx.lineWidth = d.w || 1.5; ctx.setLineDash(preview ? [5, 4] : d.ls === 1 ? [7, 5] : d.ls === 2 ? [2, 4] : []); drawLineOpts(d, pxOf(d.p1), pxOf(d.p2), lc, C); ctx.setLineDash([]); }
+}
+function drawOne0(d, C, preview) {
   var col = d.cx || C[d.c || "acc"] || C.acc, a = pxOf(d.p1), b = d.p2 ? pxOf(d.p2) : null, pw = G.pw;
   ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = d.w || 1.5; ctx.setLineDash(preview ? [5, 4] : d.ls === 1 ? [7, 5] : d.ls === 2 ? [2, 4] : []);
   if (d.type === "trend" && b) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }

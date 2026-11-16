@@ -137,21 +137,39 @@ function openDrawing(id) {
         var C0 = colors(), sw = PALETTE.map(function (c) { return "<button type='button' class='sw' data-f='c' data-v='" + c + "' aria-label='Color " + c + "' aria-pressed='" + (!d.cx && (d.c || "acc") === c) + "' style='background:var(" + SWATCH[c] + ")'></button>"; }).join("");
         var h = rowH("Color", sw + colH("cx", d.cx || C0[d.c || "acc"])) + rowH("Thickness", btnsH("w", [1, 1.5, 2, 3, 4], d.w || 1.5)) + rowH("Line style", btnsH("ls", [0, 1, 2], d.ls || 0, ["Solid", "Dashed", "Dotted"]));
         if (fill) h += rowH("Fill opacity", "<input type='range' min='0' max='60' data-f='fo' value='" + Math.round((d.fo != null ? d.fo : 0.13) * 100) + "'>");
+        if (LINE_T[d.type]) {
+          h += rowH("Left end", selH("ea1", [[0, "Normal"], [1, "Arrow"]], d.ea1 ? 1 : 0)) + rowH("Right end", selH("ea2", [[0, "Normal"], [1, "Arrow"]], d.ea2 ? 1 : 0));
+          if (d.type === "trend") h += rowH("Extend", selH("ext", [[0, "Don't extend"], [1, "Left"], [2, "Right"], [3, "Both"]], d.ext || 0));
+          h += rowH("Display", chkH("mid", d.mid, "Middle point") + chkH("pl", d.pl, "Price labels"));
+          h += rowH("Stats", selH("st", [[0, "Hidden"], [1, "Compact"], [2, "Values"]], d.st || 0)) + rowH("Stats position", selH("sp", [["left", "Left"], ["center", "Center"], ["right", "Right"]], d.sp || "right")) + rowH("", chkH("sa", d.sa, "Always show stats"));
+        }
         if (d.type === "text") h += rowH("Text", "<input type='text' maxlength='60' data-f='text' value='" + esc(d.text || "") + "'>") + rowH("Font size", selH("fs", [10, 12, 13, 14, 16, 20, 24, 32].map(function (n) { return [n, n]; }), d.fs || 13));
         return h;
+      }],
+      ["Text", function () {
+        if (!LINE_T[d.type]) return "<p class='sd-n'>Text tidak tersedia untuk tool ini.</p>";
+        var C1 = colors();
+        return rowH("Text", "<input type='text' maxlength='80' data-f='lt' value='" + esc(d.lt || "") + "' placeholder='Add text'>") + rowH("Font size", selH("lfs", [8, 10, 12, 14, 16, 20, 24].map(function (n) { return [n, n]; }), d.lfs || 12)) +
+          rowH("Style", chkH("lb", d.lb, "Bold") + chkH("li", d.li, "Italic")) + rowH("Text color", colH("lc", d.lc || d.cx || C1[d.c || "acc"])) +
+          rowH("Vertical alignment", selH("lv", [["top", "Top"], ["middle", "Middle"], ["bottom", "Bottom"]], d.lv || "top")) + rowH("Horizontal alignment", selH("lh", [["left", "Left"], ["center", "Center"], ["right", "Right"]], d.lh || "right"));
       }],
       ["Coordinates", function () {
         return pts.map(function (k, i) { return rowH("Point " + (i + 1) + " price", "<input type='number' step='any' data-f='" + k + ".p' value='" + d[k].p + "'>") + rowH("Point " + (i + 1) + " time", "<input type='datetime-local' data-f='" + k + ".t' value='" + toLocal(d[k].t) + "'>"); }).join("") || "<p class='sd-n'>No coordinates.</p>";
       }],
       ["Visibility", function () { return rowH("Display", chkH("hide", d.hide, "Hide this drawing") + chkH("only", !!d.only, "Show only on the " + S.tf.k + " timeframe") + chkH("lock", d.lock, "Lock (no move or resize)")); }]
     ],
-    foot: function () { return "<button type='button' class='btn' data-f='clone'>Clone</button><button type='button' class='btn' data-f='del'>Delete</button>"; },
+    foot: function () { return "<button type='button' class='btn' data-f='tpl'>Template &#9662;</button><button type='button' class='btn' data-f='clone'>Clone</button><button type='button' class='btn' data-f='del'>Delete</button>"; },
     set: function (f, v) {
       if (f === "del") { dlgClose(); deleteSel(); return; }
+      if (f === "tpl") { var tb = $("[data-f=tpl]", DLG); tplMenu(d, tb, function () { syncSel(); draw(); }); return; }
       if (f === "clone") { dlgClose(); snap(); var n = JSON.parse(JSON.stringify(d)); n.id = "d" + Date.now() + Math.floor(Math.random() * 1000); pts.forEach(function (k) { n[k].p *= 1.002; }); S.drawings[S.sym.id].push(n); S.sel = n.id; syncSel(); save(); return; }
       if (!snapped) { snap(); snapped = true; }
       if (f === "c") { d.c = v; delete d.cx; } else if (f === "cx") d.cx = v; else if (f === "w") d.w = parseFloat(v); else if (f === "ls") d.ls = parseInt(v, 10);
       else if (f === "fo") d.fo = v / 100; else if (f === "text") d.text = v; else if (f === "fs") d.fs = parseInt(v, 10);
+      else if (f === "ea1" || f === "ea2" || f === "ext" || f === "st") d[f] = f === "ea1" || f === "ea2" ? (parseInt(v, 10) === 1) : parseInt(v, 10);
+      else if (f === "mid" || f === "pl" || f === "sa" || f === "lb" || f === "li") d[f] = !!v;
+      else if (f === "lt" || f === "lc" || f === "sp" || f === "lv" || f === "lh") d[f] = v;
+      else if (f === "lfs") d.lfs = parseInt(v, 10);
       else if (f === "hide") d.hide = !!v; else if (f === "lock") d.lock = !!v; else if (f === "only") d.only = v ? S.tf.k : null;
       else if (f.indexOf(".") > 0) { var q = f.split("."); d[q[0]][q[1]] = v; }
       syncSel();

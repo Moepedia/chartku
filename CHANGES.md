@@ -9,3 +9,5 @@
 - Gelombang 2: 19 drawing tools lagi (Schiff/Modified Schiff, Flat top/bottom, Fib channel/arcs/spiral, Gann fan, Cypher, Cyclic lines, Sine line, Anchored VWAP, Fixed range volume profile, Triangle, Rotated rectangle, Note, Price note, Callout, Comment, Pin).
 - UI/UX: layout mobile ala TradingView mobile (chart memenuhi layar, toolbar gambar di bawah, dropdown jadi bottom sheet, toolbar drawing melayang satu baris, bar bawah ringkas).
 - Rasa pakai drawing: jenis kursor Cross/Dot/Arrow, magnet lemah/kuat (klik berulang pada tombol magnet), shortcut Alt+J (horizontal ray) dan Alt+Shift+R (rectangle).
+- Berdasarkan pengujian langsung TradingView (login): toolbar melayang drawing kini berisi Templates, Line tool colors, Line tool text colors, Line tool width, Style, Settings, Add Alert, Lock, Remove, More (08c-selbar.js).
+- Dialog pengaturan garis: tab Style (ujung kiri/kanan, Extend, Middle point, Price labels, Stats/posisi/Always show stats), tab Text (teks, ukuran, bold, italic, warna, perataan), Coordinates, Visibility, tombol Template (simpan/terapkan template per jenis tool) (06b-lineopts.js, 12-boot-settings.js).

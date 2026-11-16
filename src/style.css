@@ -400,3 +400,17 @@ body.embed .work, body.embed .work.panel-closed { grid-template-columns:40px min
   .selbar .sw { flex:none; width:24px; height:24px; }
   .selbar .btn { flex:none; padding:6px 10px; white-space:nowrap; }
 }
+
+/* toolbar melayang drawing (ikon, gaya TradingView) */
+.selbar { flex-wrap:nowrap; gap:2px; padding:3px 4px; }
+.selbar .sbb { display:inline-flex; align-items:center; justify-content:center; min-width:32px; height:32px; padding:0 6px; border:0; border-radius:6px; background:transparent; color:var(--ink); font-size:12px; }
+.selbar .sbb:hover { background:var(--hover); } .selbar .sbb[aria-pressed="true"] { color:var(--accent); }
+.selbar .sbsw { width:18px; height:18px; border-radius:4px; border:1px solid var(--line); display:block; }
+.selbar .sbT { font-size:14px; font-weight:700; line-height:1; } .selbar .sbul { display:block; width:14px; height:3px; border-radius:1px; margin-top:2px; } .selbar .sbb:has(.sbT) { flex-direction:column; }
+.selbar .sbw { font-variant-numeric:tabular-nums; min-width:44px; }
+.selpop { position:fixed; z-index:220; min-width:150px; background:var(--pop); border:1px solid var(--line); border-radius:8px; padding:6px; box-shadow:0 10px 28px rgba(0,0,0,.4); display:flex; flex-direction:column; gap:2px; }
+.selpop[hidden] { display:none; }
+.selpop button { text-align:left; border:0; background:transparent; color:var(--ink); padding:7px 10px; border-radius:6px; font-size:13px; } .selpop button:hover { background:var(--hover); } .selpop button[aria-pressed="true"] { color:var(--accent); font-weight:600; }
+.selpop .spsw { display:flex; gap:6px; padding:4px; } .selpop .spsw .sw { width:22px; height:22px; border-radius:50%; padding:0; border:2px solid var(--panel); box-shadow:0 0 0 1px var(--line); }
+.selpop .splb { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 10px; font-size:13px; } .selpop .splb input { width:36px; height:22px; padding:0; border:0; background:none; }
+.selpop .sph { color:var(--muted); font-size:11px; padding:6px 10px 2px; } .selpop .sprow { display:flex; align-items:center; } .selpop .sprow button:first-child { flex:1; } .selpop .spx { padding:5px 9px; color:var(--muted); }
