@@ -53,7 +53,7 @@ $("#selbar").addEventListener("click", function (e) {
   if (act === "cfg") { selPopHide(); openDrawing(S.sel); return; }
   if (act === "del") { selPopHide(); deleteSel(); return; }
   if (act === "lock") { snap(); d.lock = !d.lock; selPopHide(); syncSel(); draw(); save(); return; }
-  if (act === "alert") { addAlert((d.p2 || d.p1).p); return; }
+  if (act === "alert") { selPopHide(); openAlertDlg((d.p2 || d.p1).p); return; }
   selPop(act, b);
 });
 document.addEventListener("pointerdown", function (e) { if (SELPOP && !SELPOP.hidden && !e.target.closest("#selpop") && !e.target.closest("#selbar") && !e.target.closest("[data-f=tpl]")) selPopHide(); }, true);

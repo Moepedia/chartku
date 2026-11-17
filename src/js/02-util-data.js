@@ -8,20 +8,26 @@ var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct",
 var fmtCache = {};
 function tparts(t) {
   var z = TZS.filter(function (x) { return x[0] === S.tz; })[0] || TZS[0];
-  var f = fmtCache[z[0]] || (fmtCache[z[0]] = new Intl.DateTimeFormat("en-US", { timeZone: z[2], hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", weekday: "short" }));
+  var f = fmtCache[z[0]] || (fmtCache[z[0]] = new Intl.DateTimeFormat("en-US", { timeZone: z[2], hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric", weekday: "short" }));
   var o = {}; f.formatToParts(new Date(t * 1000)).forEach(function (p) { o[p.type] = p.value; });
-  return { y: +o.year, mo: +o.month - 1, d: +o.day, h: (+o.hour) % 24, mi: +o.minute, dow: o.weekday };
+  return { y: +o.year, mo: +o.month - 1, d: +o.day, h: (+o.hour) % 24, mi: +o.minute, sec: +o.second, dow: o.weekday };
+}
+function hmText(p) { if (S.sty.h12) { var hh = p.h % 12 || 12; return hh + ":" + two(p.mi) + (p.sec != null && S.tf.u === "S" ? ":" + two(p.sec) : "") + " " + (p.h < 12 ? "AM" : "PM"); } return two(p.h) + ":" + two(p.mi) + (S.tf.u === "S" && p.sec != null ? ":" + two(p.sec) : ""); }
+function dateText(p) {
+  var f = S.sty.dfmt || "dmy", y2 = "'" + String(p.y).slice(2), dw = S.sty.dow !== false ? p.dow + " " : "";
+  if (f === "dmyn") return two(p.d) + "/" + two(p.mo + 1) + "/" + p.y; if (f === "mdyn") return two(p.mo + 1) + "/" + two(p.d) + "/" + p.y; if (f === "iso") return p.y + "-" + two(p.mo + 1) + "-" + two(p.d);
+  if (f === "dmyl") return dw + p.d + " " + MON[p.mo] + " " + p.y; return dw + p.d + " " + MON[p.mo] + " " + y2;
 }
 function axisTime(t, prevT) {
   var p = tparts(t);
   if (S.tf.s >= 604800) return MON[p.mo] + " " + String(p.y).slice(2);
   if (S.tf.s >= 86400) return p.d + " " + MON[p.mo];
   if (prevT && tparts(prevT).d !== p.d) return p.d + " " + MON[p.mo];
-  return two(p.h) + ":" + two(p.mi);
+  return hmText(p);
 }
 function fullTime(t) {
-  var p = tparts(t), s = p.dow + " " + p.d + " " + MON[p.mo] + " " + p.y;
-  return S.tf.s >= 86400 ? s : s + " " + two(p.h) + ":" + two(p.mi);
+  var p = tparts(t), s = dateText(p);
+  return S.tf.s >= 86400 ? s : s + " " + hmText(p) + (S.tf.u === "T" ? ":" + two(p.sec) : "");
 }
 function dur(sec) {
   sec = Math.abs(sec); var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);

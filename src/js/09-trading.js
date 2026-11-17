@@ -39,14 +39,14 @@ function renderAlerts() {
   var h = "";
   S.alerts.slice().reverse().forEach(function (a) {
     var s = N_(a.sym); if (!s) return;
-    h += "<li><span><b>" + s.label + "</b> <span class='m'>" + fmt(a.price, s.dec) + "</span><br><span class='dim'>" + (a.active ? "Waiting to cross" : "Triggered") + "</span></span><button class='x' type='button' data-id='" + a.id + "' aria-label='Remove alert'>&times;</button></li>";
+    h += "<li><span><b>" + s.label + "</b> <span class='m'>" + fmt(a.price, s.dec) + "</span><br><span class='dim'>" + alDesc(a) + "</span></span><button class='x' type='button' data-id='" + a.id + "' aria-label='Remove alert'>&times;</button></li>";
   });
   $("#alList").innerHTML = h || "<li class='empty'>Belum ada peringatan. Klik kanan chart atau ketik harga di atas.</li>";
 }
 $("#alList").addEventListener("click", function (e) { var b = e.target.closest("button"); if (!b) return; S.alerts = S.alerts.filter(function (a) { return a.id !== b.dataset.id; }); renderAlerts(); draw(); save(); });
 $("#alAdd").addEventListener("click", function () { addAlert(parseFloat($("#alPrice").value)); });
 $("#alPrice").addEventListener("keydown", function (e) { if (e.key === "Enter") addAlert(parseFloat(this.value)); });
-$("#alBtn").addEventListener("click", function () { $("#work").classList.remove("panel-closed"); selectTab("alerts"); $("#alPrice").value = curPrice().toFixed(S.sym.dec); $("#alPrice").focus(); $("#alPrice").select(); });
+$("#alBtn").addEventListener("click", function () { openAlertDlg(curPrice()); });
 
 var SPREAD = 0.0001;
 function trade(side, sym) {

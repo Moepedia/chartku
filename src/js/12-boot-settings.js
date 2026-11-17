@@ -18,6 +18,7 @@ document.addEventListener("keydown", function (e) {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { if (e.shiftKey) redo(); else undo(); e.preventDefault(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") { redo(); e.preventDefault(); return; }
   if ((e.key === "Delete" || e.key === "Backspace") && S.sel) { deleteSel(); e.preventDefault(); return; }
+if (e.key === "Enter" && S.pend && S.pend.pts && VARNP[S.pend.type] && S.pend.pts.length >= 2) { var pv2 = S.pend; S.pend = null; commitPat(pv2.type, pv2.pts); syncDraw(); draw(); e.preventDefault(); return; }
   if (e.altKey) {
     var kk = e.key.toLowerCase(), m = { t: "trend", h: "hline", v: "vline", j: "hray", f: "fib", b: "rect", c: "cross", e: "eraser" }[kk];
     if (kk === "r" && e.shiftKey) { setTool("rect"); e.preventDefault(); } else if (m) { setTool(m); e.preventDefault(); } else if (kk === "r") { resetView(); draw(); e.preventDefault(); }
@@ -203,8 +204,9 @@ function openInd(k) {
   });
 }
 
-var BOOLS = { pc: 1, body: 1, border: 1, wick: 1, lastLine: 1, lastLabel: 1, cd: 1, gh: 1, gv: 1, sSym: 1, sOhlc: 1, sChg: 1, sVol: 1, sInd: 1, wm: 1, tPos: 1, tBuy: 1, aLn: 1, aSnd: 1 };
+var BOOLS = { pc: 1, body: 1, border: 1, wick: 1, lastLine: 1, lastLabel: 1, cd: 1, gh: 1, gv: 1, sSym: 1, sOhlc: 1, sChg: 1, sVol: 1, sInd: 1, wm: 1, tPos: 1, tBuy: 1, aLn: 1, aSnd: 1, mkt: 1, dchg: 1, iTit: 1, iInp: 1, iVal: 1, noOv: 1, dow: 1, h12: 1, extZ: 1 };
 function applyStatus() {
+  var lg0 = $("#legend"); if (lg0) lg0.style.setProperty("--lgbg", String(S.sty.iBg || 0)); var rb0 = $("#rbar"); if (rb0) { $$("#rbar button").forEach(function (b) { if (["Auto", "Log", "%", "Inv"].indexOf(b.textContent.trim()) >= 0) b.classList.add("scm"); }); rb0.classList.toggle("scm-hover", S.sty.smv === "hover"); rb0.classList.toggle("scm-never", S.sty.smv === "never"); }
   var od0 = $(".order"); if (od0) od0.style.display = S.sty.tBuy === false ? "none" : "";
   var q = S.sty, r = $("#readout"), l = $("#legend");
   r.classList.toggle("no-sym", q.sSym === false); r.classList.toggle("no-ohlc", q.sOhlc === false); r.classList.toggle("no-chg", q.sChg === false); r.classList.toggle("no-vol", q.sVol === false); l.classList.toggle("no-ind", q.sInd === false);
@@ -235,19 +237,27 @@ function openChart(tn) {
           rowH("Precision", selH("prec", prec, (Q.prec || {})[S.sym.id] != null ? Q.prec[S.sym.id] : "")) + rowH("Time zone", selH("tz", TZS.map(function (z) { return [z[0], z[1]]; }), S.tz));
       }],
       ["Status line", function () {
-        return rowH("Show", chkH("sSym", Q.sSym !== false, "Symbol, interval and time") + chkH("sOhlc", Q.sOhlc !== false, "OHLC values") + chkH("sChg", Q.sChg !== false, "Bar change values") + chkH("sVol", Q.sVol !== false, "Volume") + chkH("sInd", Q.sInd !== false, "Indicator titles and values"));
+        return rowH("Show", chkH("sSym", Q.sSym !== false, "Symbol, interval and time") + chkH("sOhlc", Q.sOhlc !== false, "OHLC values") + chkH("sChg", Q.sChg !== false, "Bar change values") + chkH("sVol", Q.sVol !== false, "Volume") + chkH("sInd", Q.sInd !== false, "Indicator titles and values")) +
+          rowH("Title", selH("o:ttl", [["sym", "Symbol"], ["desc", "Description"]], Q.ttl || "sym")) + rowH("More", chkH("mkt", !!Q.mkt, "Open market status") + chkH("dchg", !!Q.dchg, "Last day change values") + chkH("tBuy", Q.tBuy !== false, "Buy/sell buttons")) +
+          rowH("Indicators", chkH("iTit", Q.iTit !== false, "Titles") + chkH("iInp", Q.iInp !== false, "Inputs") + chkH("iVal", Q.iVal !== false, "Values")) +
+          rowH("Background", "<input type='range' min='0' max='100' step='5' data-f='o:iBg' value='" + (Q.iBg || 0) + "'>");
       }],
       ["Scales and lines", function () {
         return rowH("Price scale", btnsH("scale", ["auto", "log", "pct"], S.scale, ["Auto", "Log", "%"])) +
           rowH("Scale options", chkH("invert", S.invert, "Invert scale") + chkH("lockScale", S.lockScale, "Lock price scale")) +
           rowH("Labels", chkH("lastLabel", Q.lastLabel !== false, "Last price label on scale") + chkH("lastLine", Q.lastLine !== false, "Last price line") + chkH("cd", !!Q.cd, "Countdown to bar close") + chkH("hilo", S.hilo, "High and low price labels")) +
+          rowH("Scale modes (A and L)", selH("o:smv", [["always", "Always visible"], ["hover", "Visible on mouse over"], ["never", "Always invisible"]], Q.smv || "always")) +
+          rowH("Price labels & lines", chkH("noOv", !!Q.noOv, "No overlapping labels")) + rowH("Previous day close", selH("o:pdc", [["hide", "Hidden"], ["line", "Line"]], Q.pdc || "hide")) +
+          rowH("Time scale", chkH("dow", Q.dow !== false, "Day of week on labels") + chkH("h12", !!Q.h12, "12-hours time format") + chkH("extZ", !!Q.extZ, "Allow extended zoom out")) +
+          rowH("Date format", selH("o:dfmt", [["dmy", "Mon 29 Sep '97"], ["dmyl", "Mon 29 Sep 1997"], ["dmyn", "29/09/1997"], ["mdyn", "09/29/1997"], ["iso", "1997-09-29"]], Q.dfmt || "dmy")) +
           rowH("Events", chkH("evm", S.events, "Event markers on the time axis")) +
           rowH("View", "<button type='button' class='btn' data-f='rsty'>Reset price scale</button><button type='button' class='btn' data-f='rview'>Reset chart view</button>");
       }],
       ["Canvas", function () {
         var C0 = colors();
         return rowH("Theme", btnsH("theme", ["dark", "light"], document.documentElement.getAttribute("data-theme"), ["Dark", "Light"])) + rowH("Background", colH("c:bg", C0.bg)) +
-          rowH("Watermark", chkH("wm", Q.wm !== false, "Symbol watermark in the middle of the chart")) +
+          rowH("Watermark", selH("o:wmt", [["sym", "Symbol"], ["symdesc", "Symbol and description"], ["hide", "Hidden"]], Q.wmt || "sym")) +
+          rowH("Margins", "<span class='sd-n'>Top %</span><input type='number' min='0' max='60' step='1' data-f='o:mTop' value='" + (Q.mTop != null ? Q.mTop : 10) + "'><span class='sd-n'>Bottom %</span><input type='number' min='0' max='60' step='1' data-f='o:mBot' value='" + (Q.mBot != null ? Q.mBot : 8) + "'><span class='sd-n'>Right (bars)</span><input type='number' min='0' max='200' step='1' data-f='o:mR' value='" + (Q.mR != null ? Q.mR : 6) + "'>") +
           rowH("Grid lines", chkH("gh", Q.gh !== false && S.grid, "Horizontal") + chkH("gv", Q.gv !== false && S.grid, "Vertical") + colH("c:grid", C0.grid)) +
           rowH("Crosshair", colH("c:cross", C0.cross || C0.muted) + btnsH("cls", [0, 1, 2], Q.cls || 0, ["Dashed", "Solid", "Dotted"])) + rowH("Scale text", colH("c:muted", C0.muted)) +
           rowH("Defaults", "<button type='button' class='btn' data-f='rcan'>Reset canvas</button>");
@@ -269,6 +279,7 @@ function openChart(tn) {
       else if (f === "evm") { S.events = !!v; $("#evChk").checked = S.events; }
       else if (BOOLS[f]) { Q = S.sty; S.sty[f] = !!v; if (f === "gh" || f === "gv") S.grid = !!(S.sty.gh !== false || S.sty.gv !== false); }
       else if (f === "type") S.type = v; else if (f.indexOf("c:") === 0) S.colOv[f.slice(2)] = v; else if (f.indexOf("q:") === 0) S.sty[f.slice(2)] = v;
+      else if (f.indexOf("o:") === 0) { var ok = f.slice(2), nv = (v !== "" && !isNaN(v)) ? parseFloat(v) : v; S.sty[ok] = nv; if (ok === "mR" || ok === "mTop" || ok === "mBot") { if (ok === "mR") S.off = nv; } }
       else if (f === "lw" || f === "cls") S.sty[f] = parseFloat(v);
       else if (f === "prec") { S.sty.prec = S.sty.prec || {}; if (v === "") delete S.sty.prec[S.sym.id]; else S.sty.prec[S.sym.id] = parseInt(v, 10); applyPrec(); header(); renderInfo(); }
       else if (f === "scale") S.scale = v; else if (f === "tz") S.tz = v;

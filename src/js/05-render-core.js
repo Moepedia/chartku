@@ -47,7 +47,7 @@ function geom() {
     cmpData.forEach(function (c) { var cb = c.bars[i]; if (cb) { var q = vOf(cb.c, c.bars[iL].c); if (q < lo) lo = q; if (q > hi) hi = q; } });
   }
   if (!isFinite(lo)) { lo = vm(src[nv - 1].l); hi = vm(src[nv - 1].h); }
-  var pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.001 || 1; lo -= pad; hi += pad * 1.2;
+  var rg0 = (hi - lo) || Math.abs(hi) * 0.01 || 1, pb = rg0 * (S.sty.mBot != null ? S.sty.mBot : 8) / 100, pt = rg0 * (S.sty.mTop != null ? S.sty.mTop : 10) / 100; lo -= pb; hi += pt;
   if (S.yMan) { var mid = (lo + hi) / 2 + S.yShift * (hi - lo), half = (hi - lo) / 2 * S.yScale; lo = mid - half; hi = mid + half; }
   if (S.lockScale) {
     if (!S.lockR || S.lockR.mode !== mode) S.lockR = { mode: mode, lo: lo, hi: hi };
@@ -109,7 +109,10 @@ function drawMain(C) {
   }
 
   var src = G.src, ty = S.type;
-  if (ty === "kagi") {
+  if (ty === "footprint") drawFootprint(src, C);
+  else if (ty === "tpo") drawTPO(src, C);
+  else if (ty === "svp") drawSVP(src, C);
+  else if (ty === "kagi") {
     ctx.lineJoin = "miter"; var kPrev = null;
     for (i = G.iL; i <= G.iR; i++) { b = src[i]; var kx = X(i), ky = G.Yp(b.c); ctx.strokeStyle = b.d > 0 ? C.up : C.down; ctx.lineWidth = b.d > 0 ? 3 : 1.5; ctx.beginPath(); if (kPrev) { ctx.moveTo(kPrev.x, kPrev.y); ctx.lineTo(kx, kPrev.y); ctx.lineTo(kx, ky); } else ctx.moveTo(kx, ky); ctx.stroke(); kPrev = { x: kx, y: ky }; }
     ctx.lineWidth = 1;
@@ -209,6 +212,7 @@ function drawMain(C) {
   /* last price line */
   var last = bars[G.nv - 1], lcol = last.c >= last.o ? C.up : C.down, ly = G.Yp(last.c);
   if (S.sty.lastLine !== false) { ctx.setLineDash([4, 4]); ctx.strokeStyle = lcol; ctx.beginPath(); ctx.moveTo(0, Math.round(ly) + 0.5); ctx.lineTo(pw, Math.round(ly) + 0.5); ctx.stroke(); ctx.setLineDash([]); }
+  if (S.sty.pdc === "line") { var pdc = prevDayClose(); if (pdc != null) { var pyy = G.Yp(pdc); ctx.save(); ctx.strokeStyle = C.muted; ctx.globalAlpha = 0.8; ctx.setLineDash([2, 4]); ctx.beginPath(); ctx.moveTo(0, Math.round(pyy) + 0.5); ctx.lineTo(G.pw, Math.round(pyy) + 0.5); ctx.stroke(); ctx.restore(); G.tags.push({ y: pyy, text: fmt(pdc, dec), bg: C.muted, fg: C.bg }); } }
   if (S.sty.cd) G.tags.push({ y: ly + 17, text: cdText(), bg: lcol, fg: "#ffffff" });
   G.tags.push({ y: ly, text: S.sty.lastLabel === false ? "" : G.mode === "pct" ? ((last.c / G.ref0 - 1) * 100).toFixed(2) + "%" : fmt(last.c, dec), bg: lcol, fg: "#ffffff", last: true });
 

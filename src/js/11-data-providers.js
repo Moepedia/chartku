@@ -126,6 +126,7 @@ var PROV = {
   }
 };
 function loadHist(sym, tf, short) {
+  if (tf.u === "T" || tf.u === "R") return Promise.reject(new Error("unsupported interval"));
   var p = Promise.reject(new Error("start"));
   order(sym).forEach(function (k) {
     p = p.catch(function () {
@@ -232,6 +233,7 @@ $("#wl").addEventListener("click", function (e) {
   if (rm) { S.watch = S.watch.filter(function (id) { return id !== rm.dataset.rm; }); buildWatch(); save(); } else if (pk) selectSym(N_(pk.dataset.id));
 });
 function watchUpdate() {
+  if (S.tab === "screen") renderScreener();
   $$("#wl li[data-id]").forEach(function (li) {
     var s = N_(li.dataset.id), p = live[s.id], pc = (p / ref[s.id] - 1) * 100;
     li.querySelector("[data-v]").textContent = fmt(p, s.dec);
@@ -251,11 +253,7 @@ function renderInfo() {
 /* ---------- live updates ---------- */
 function setLive(s, p) {
   var prev = live[s.id]; live[s.id] = p; ready[s.id] = true;
-  S.alerts.forEach(function (a) {
-    if (a.sym === s.id && a.active && prev != null && ((prev < a.price && p >= a.price) || (prev > a.price && p <= a.price))) {
-      a.active = false; toast("Alert: " + s.label + " crossed " + fmt(a.price, s.dec)); if (S.sty.aSnd !== false) { try { var ac = new (window.AudioContext || window.webkitAudioContext)(), os = ac.createOscillator(), gn = ac.createGain(); os.frequency.value = 880; gn.gain.value = 0.05; os.connect(gn); gn.connect(ac.destination); os.start(); os.stop(ac.currentTime + 0.25); } catch (e) { /* audio unavailable */ } } renderAlerts(); save();
-    }
-  });
+  alertTick(s, prev, p);
 }
 function merge(arr, nb) {
   nb.forEach(function (x) { var l = arr[arr.length - 1]; if (!l || x.t > l.t) arr.push(x); else if (x.t === l.t) arr[arr.length - 1] = x; });

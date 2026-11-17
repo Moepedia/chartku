@@ -103,7 +103,7 @@ function refreshRail() {
   GROUPS.forEach(function (g) {
     var b = $("#rail [data-g='" + g.id + "']"); if (!b) return;
     if (g.id === "icons") { b.dataset.tool = "emoji"; b.title = "Icons: tap to pick a symbol"; b.setAttribute("aria-label", "Icons"); b.setAttribute("aria-pressed", String(S.tool === "emoji")); b.innerHTML = "<span class='em'>" + (S.emojiCh || "\u2B50") + "</span>"; return; }
-    var c = g.id === "cur" ? (S.tool === "eraser" ? "eraser" : S.curType === "dot" ? "dotcur" : S.curType === "arrow" ? "arrowcur" : "cursor") : grpCur(g), on = g.tools.indexOf(S.tool) >= 0, tip = TN[c] + (TK[c] ? " (" + TK[c] + ")" : "") + (g.tools.length > 1 ? ". Tap the corner or press and hold for more " + g.name.toLowerCase() : "");
+    var c = g.id === "cur" ? (S.tool === "eraser" ? "eraser" : S.curType === "dot" ? "dotcur" : S.curType === "arrow" ? "arrowcur" : S.curType === "demo" ? "demo" : "cursor") : grpCur(g), on = g.tools.indexOf(S.tool) >= 0, tip = TN[c] + (TK[c] ? " (" + TK[c] + ")" : "") + (g.tools.length > 1 ? ". Tap the corner or press and hold for more " + g.name.toLowerCase() : "");
     b.dataset.tool = c; b.title = tip; b.setAttribute("aria-label", TN[c] + (g.tools.length > 1 ? ", group " + g.name : "")); b.setAttribute("aria-pressed", String(on));
     var sv = b.querySelector("svg"); if (sv) sv.innerHTML = ICONS[c];
   });
@@ -113,13 +113,13 @@ function syncDraw(force) {
   var el = $("#dhint"), t = S.tool; if (!el) return;
   if (t === "cursor") { el.hidden = true; dhSig = ""; return; }
   var st = !S.pend ? 0 : S.pend.p2 ? 2 : 1, sig = t + "|" + st + "|" + S.keep + "|" + (S.pend && S.pend.pts ? S.pend.pts.length : 0); if (!force && sig === dhSig) return; dhSig = sig;
-  var msg = t === "eraser" ? "Tap a drawing to erase it" : t === "brush" ? "Press and drag to draw" : t === "text" ? "Tap where the note goes" : t === "emoji" ? "Tap to place the icon" : NP[t] ? "Tap point " + ((S.pend && S.pend.pts ? S.pend.pts.length : 0) + 1) + " of " + NP[t] : ONE[t] ? "Tap to place it"
+  var msg = t === "eraser" ? "Tap a drawing to erase it" : t === "brush" ? "Press and drag to draw" : t === "text" ? "Tap where the note goes" : t === "emoji" ? "Tap to place the icon" : VARNP[t] ? "Click to add points; double-click or press Enter to finish" : NP[t] ? "Tap point " + ((S.pend && S.pend.pts ? S.pend.pts.length : 0) + 1) + " of " + NP[t] : ONE[t] ? "Tap to place it"
     : st === 0 ? "Tap the first point" : THREE[t] ? (st === 1 ? "Tap the second point" : "Tap the third point") : "Tap the second point, or drag";
   el.innerHTML = "<span><b>" + TN[t] + "</b>: " + msg + "</span><button type='button' data-x='keep' aria-pressed='" + S.keep + "' title='Stay in drawing mode'>Keep drawing</button><button type='button' data-x='done'>" + (st ? "Cancel" : "Done") + "</button>";
   el.hidden = false;
 }
 function setTool(t) {
-  if (t === "dotcur" || t === "arrowcur") { S.curType = t === "dotcur" ? "dot" : "arrow"; t = "cursor"; }
+  if (t === "dotcur" || t === "arrowcur" || t === "demo") { S.curType = t === "dotcur" ? "dot" : t === "demo" ? "demo" : "arrow"; t = "cursor"; }
   S.tool = t; S.pend = null; hideTxt(); hideFly(); var g = grpOfTool(t); if (g && g.id !== "cur") S.gcur[g.id] = t;
   $("#hint").textContent = HINTS[t]; cv.style.cursor = t === "eraser" ? "cell" : (t === "cursor" && S.curType && S.curType !== "cross") ? "default" : "crosshair"; syncUI(); syncDraw(true); draw(); save();
 }
@@ -180,7 +180,7 @@ function startLp(e, x, y) {
   }, 520);
 }
 function zoomAt(mx, nb) {
-  var bw = S.barW, fi = G.fiAtX(mx); S.barW = Math.max(2.5, Math.min(48, nb));
+  var bw = S.barW, fi = G.fiAtX(mx); S.barW = Math.max(S.sty.extZ ? 0.6 : 2.5, Math.min(48, nb));
   S.off = fi - (G.nv - 1) + (G.pw - S.barW / 2 - mx) / S.barW; if (bw === S.barW) return;
 }
 cv.addEventListener("pointerdown", function (e) {
@@ -201,9 +201,10 @@ cv.addEventListener("pointerdown", function (e) {
     var pt = toPt(x, y);
     if (ONE[S.tool]) { commit(S.tool, pt); return; }
     if (S.tool === "text" || XTXT[S.tool]) { showTxt(x, y, pt); return; }
-    if (S.tool === "brush") { drag = { kind: "brush", pts: [pt] }; return; }
+    if (S.tool === "brush" || S.tool === "highlighter") { drag = { kind: "brush", pts: [pt], hl: S.tool === "highlighter" }; return; }
     if (S.tool === "emoji") { commit(S.tool, pt); return; }
     if (NP[S.tool]) {
+      if (S.pend && S.pend.pts && VARNP[S.pend.type] && S.pend.pts.length >= 2 && Math.hypot(x - pxOf(S.pend.pts[S.pend.pts.length - 1]).x, y - pxOf(S.pend.pts[S.pend.pts.length - 1]).y) < 8) { var pv = S.pend; S.pend = null; commitPat(pv.type, pv.pts); syncDraw(); draw(); return; }
       if (S.pend && S.pend.pts) { S.pend.pts.push(pt); if (S.pend.pts.length >= NP[S.tool]) { var pq = S.pend; S.pend = null; commitPat(pq.type, pq.pts); } }
       else S.pend = { type: S.tool, pts: [pt] };
       syncDraw(); draw(); return;
@@ -277,7 +278,7 @@ cv.addEventListener("wheel", function (e) {
   else zoomAt(xy[0], S.barW * Math.exp(-e.deltaY * 0.0015));
   draw();
 }, { passive: false });
-function resetView() { S.barW = window.innerWidth < 520 ? 7 : 9; S.off = 6; S.yMan = false; S.yScale = 1; S.yShift = 0; }
+function resetView() { S.barW = window.innerWidth < 520 ? 7 : 9; S.off = S.sty.mR != null ? S.sty.mR : 6; S.yMan = false; S.yScale = 1; S.yShift = 0; }
 
 /* ---------- selection bar, text note, context menu ---------- */
 var SWATCH = { acc: "--accent", i1: "--i1", i2: "--i2", up: "--up", down: "--down", tag: "--ink" };

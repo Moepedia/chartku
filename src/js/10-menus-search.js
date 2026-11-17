@@ -23,9 +23,9 @@ function renderTfPop() {
     return "<div class='tfrow'><button type='button' class='opt' data-k='" + t.k + "' aria-pressed='" + (t.k === S.tf.k) + "'>" + tfLabel(t) + "</button><button type='button' class='star" + (fav ? " on" : "") + "' data-star='" + t.k + "' aria-label='" + (fav ? "Unpin " : "Pin ") + tfLabel(t) + " " + (fav ? "from" : "to") + " the toolbar' title='" + (fav ? "Unpin from" : "Pin to") + " toolbar'>" + (fav ? "\u2605" : "\u2606") + "</button>" + (custom ? "<button type='button' class='star' data-del='" + t.k + "' aria-label='Delete custom interval " + t.k + "' title='Delete'>&times;</button>" : "") + "</div>";
   };
   var h = "<div class='tfcust'><input id='tfN' type='number' inputmode='numeric' min='1' step='1' placeholder='e.g. 7' aria-label='Custom interval value' value='" + esc(pv) + "'><select id='tfU' aria-label='Custom interval unit'>" +
-    [["m", "minutes"], ["H", "hours"], ["D", "days"], ["W", "weeks"], ["M", "months"]].map(function (o) { return "<option value='" + o[0] + "'" + (o[0] === pu ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select><button type='button' class='btn' id='tfAdd'>Add</button></div><small>Type any interval, for example 7 minutes or 3 days. Star one to pin it to the toolbar.</small>";
+    [["T", "ticks"], ["S", "seconds"], ["m", "minutes"], ["H", "hours"], ["D", "days"], ["W", "weeks"], ["M", "months"], ["R", "ranges"]].map(function (o) { return "<option value='" + o[0] + "'" + (o[0] === pu ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select><button type='button' class='btn' id='tfAdd'>Add</button></div><small>Type any interval, for example 7 minutes or 3 days. Star one to pin it to the toolbar.</small>";
   if (CTF.length) h += "<h4>Custom</h4>" + CTF.map(function (t) { return row(t, true); }).join("");
-  [["Minutes", "m"], ["Hours", "H"], ["Days, weeks, months", "DWM"]].forEach(function (g) {
+  [["Ticks", "T"], ["Seconds", "S"], ["Minutes", "m"], ["Hours", "H"], ["Days", "DWM"], ["Ranges", "R"]].forEach(function (g) {
     h += "<h4>" + g[0] + "</h4>" + TFS.filter(function (t) { return g[1].indexOf(t.u) >= 0; }).map(function (t) { return row(t, false); }).join("");
   });
   pop.innerHTML = h;
@@ -127,12 +127,12 @@ function buildMenus() {
   $("#rpBtnB").addEventListener("click", function () { setReplay(!S.replay.on); });
   $("#tradeBtnB").addEventListener("click", function () { openPanel("trade"); });
 }
-var TABT = { watch: "Daftar Pantau", alerts: "Peringatan", trade: "Trading Panel", info: "Info Simbol", objs: "Objek", events: "Agenda" };
+var TABT = { watch: "Watchlist", alerts: "Alerts", trade: "Trading Panel", info: "Details and News", objs: "Object tree", data: "Data window", screen: "Screeners", events: "Calendars" };
 function selectTab(t) {
   S.tab = t;
-  ["watch", "alerts", "trade", "info", "objs", "events"].forEach(function (k) { $("#p-" + k).hidden = k !== t; });
+  ["watch", "alerts", "trade", "info", "objs", "data", "screen", "events"].forEach(function (k) { $("#p-" + k).hidden = k !== t; });
   var st2 = $("#sideTitle"); if (st2) st2.textContent = TABT[t] || t;
-  syncPanel(); renderObjs(); if (t === "events") renderEvents();
+  syncPanel(); renderObjs(); if (t === "events") renderEvents(); if (t === "screen") renderScreener(); if (t === "data") renderDataWindow(bars.length - 1);
 }
 function syncPanel() { var closed = $("#work").classList.contains("panel-closed"); $$("#rrail button[data-tab]").forEach(function (b) { b.setAttribute("aria-pressed", String(!closed && b.dataset.tab === S.tab)); }); }
 function openPanel(t) { var w = $("#work"); if (S.tab === t && !w.classList.contains("panel-closed")) { w.classList.add("panel-closed"); syncPanel(); return; } w.classList.remove("panel-closed"); selectTab(t); }

@@ -111,10 +111,12 @@ function draw() {
   if (!bars.length || !ctx) return;
   var C = colors(); geom();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
-  if (S.sty.wm !== false && G.pw > 200) {
+  if (S.sty.wm !== false && S.sty.wmt !== "hide" && G.pw > 200) {
     ctx.save(); ctx.globalAlpha = 0.055; ctx.fillStyle = C.muted; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.font = "700 " + Math.max(26, Math.min(64, G.pw / 11)) + "px " + css("--font-body");
-    ctx.fillText(S.sym.label, G.pw / 2, T + G.mainH / 2); ctx.restore();
+    ctx.fillText(S.sym.label, G.pw / 2, T + G.mainH / 2);
+    if (S.sty.wmt === "symdesc") { ctx.font = "500 " + Math.max(12, Math.min(22, G.pw / 38)) + "px " + css("--font-body"); ctx.fillText(S.sym.name, G.pw / 2, T + G.mainH / 2 + Math.max(26, Math.min(64, G.pw / 11)) * 0.8); }
+    ctx.restore();
   }
   ctx.font = "11px " + css("--font-mono");
   var pw = G.pw, ph = G.ph, i;
@@ -148,6 +150,7 @@ function draw() {
       ctx.fillStyle = "#ffffff"; ctx.fillText(ev.code, x, ph + B / 2 + 1.5);
     });
   }
+  if (S.sty.noOv) { var tg = G.tags.filter(function (t) { return t.text; }).sort(function (a, b) { return a.y - b.y; }), k0; for (k0 = 1; k0 < tg.length; k0++) if (tg[k0].y - tg[k0 - 1].y < 17) tg[k0].y = tg[k0 - 1].y + 17; }
   G.tags.forEach(function (t) { if (t.text) tagBox(t.text, pw + 1, Math.max(T + 9, Math.min(G.mainH - 9, t.y)), R - 1, t.bg, t.fg); });
 
   /* crosshair */
@@ -157,7 +160,8 @@ function draw() {
     var sx = Math.round(G.X(idx)) + 0.5;
     ctx.setLineDash(S.sty.cls === 1 ? [] : S.sty.cls === 2 ? [1, 3] : [3, 4]); ctx.strokeStyle = C.cross || C.muted;
     var ct0 = S.tool === "cursor" ? S.curType : "cross";
-    if (ct0 === "dot") { ctx.setLineDash([]); ctx.fillStyle = C.cross || C.muted; ctx.beginPath(); ctx.arc(sx, Math.round(S.cy) + 0.5, 3.5, 0, 6.2832); ctx.fill(); }
+    if (ct0 === "demo") { ctx.setLineDash([]); var gr = ctx.createRadialGradient(sx, S.cy, 2, sx, S.cy, 26); gr.addColorStop(0, "rgba(255,82,82,.85)"); gr.addColorStop(1, "rgba(255,82,82,0)"); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(sx, S.cy, 26, 0, 6.2832); ctx.fill(); }
+    else if (ct0 === "dot") { ctx.setLineDash([]); ctx.fillStyle = C.cross || C.muted; ctx.beginPath(); ctx.arc(sx, Math.round(S.cy) + 0.5, 3.5, 0, 6.2832); ctx.fill(); }
     else if (ct0 !== "arrow") { ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, ph); ctx.moveTo(0, Math.round(S.cy) + 0.5); ctx.lineTo(pw, Math.round(S.cy) + 0.5); ctx.stroke(); }
     ctx.setLineDash([]);
     var label = null;
@@ -175,16 +179,16 @@ function paintReadout(i, C) {
   var b = bars[i], d = S.sym.dec, up = b.c >= b.o, cls = up ? "up" : "down", ch = b.c - b.o;
   $("#readout").innerHTML = "<span>O<b>" + fmt(b.o, d) + "</b></span><span>H<b>" + fmt(b.h, d) + "</b></span><span>L<b>" + fmt(b.l, d) + "</b></span><span>C<b class=\"" + cls + "\">" + fmt(b.c, d) + "</b></span>" +
     "<span>Chg<b class=\"" + cls + "\">" + (ch >= 0 ? "+" : "") + fmt(ch, d) + " (" + (ch >= 0 ? "+" : "") + (ch / b.o * 100).toFixed(2) + "%)</b></span><span>Vol<b>" + b.v.toLocaleString("en-US") + "</b></span>" +
-    "<span class=\"when\">" + S.sym.label + " &middot; " + S.tf.k + " &middot; " + fullTime(b.t) + "</span>";
+    (S.sty.dchg ? dayChgHtml(b, d) : "") + "<span class=\"when\">" + (S.sty.ttl === "desc" ? S.sym.name : S.sym.label) + " &middot; " + S.tf.k + " &middot; " + fullTime(b.t) + (S.sty.mkt ? " &middot; " + (mktOpen() ? "<b class=\"up\">Market open</b>" : "<b class=\"down\">Market closed</b>") : "") + "</span>";
   var h = "", v = function (a, dd) { return a[i] == null ? "&ndash;" : a[i].toFixed(dd == null ? d : dd); };
-  var item = function (col, name, val) { return "<span class=\"chip\" style=\"color:" + col + hidSt(name) + "\">" + name + " <b style=\"font-weight:500\">" + val + "</b><span class=\"lt\">" + ltools(name) + "</span></span>"; };
+  var item = function (col, name, val) { return "<span class=\"chip\" style=\"color:" + col + hidSt(name) + "\">" + legName(name) + (S.sty.iVal === false ? "" : " <b style=\"font-weight:500\">" + val + "</b>") + "<span class=\"lt\">" + ltools(name) + "</span></span>"; };
   if (S.ind.sma) h += item(C.i1, "SMA " + S.len.sma, v(ind.sma)); if (S.ind.ema) h += item(C.i2, "EMA " + S.len.ema, v(ind.ema));
   if (S.ind.bb) h += item(C.i3, "BB", v(ind.bbL) + " / " + v(ind.bbU)); if (S.ind.vwap) h += item(C.i4, "VWAP", v(ind.vwap));
   if (S.ind.rsi) h += item(C.i2, "RSI " + S.len.rsi, v(ind.rsi, 1));
   if (S.ind.stoch) h += item(C.i1, "Stoch " + S.len.stoch, v(ind.stK, 1) + " / " + v(ind.stD, 1)); if (S.ind.atr) h += item(C.i4, "ATR " + S.len.atr, v(ind.atr));
   if (S.ind.adx) h += item(C.i3, "ADX " + S.len.adx, v(ind.adx, 1)); if (S.ind.st) h += item(C.i3, "Supertrend", v(ind.st)); if (S.ind.ichi) h += item(C.i1, "Ichimoku", v(ind.tenkan) + " / " + v(ind.kijun));
   if (S.ind.macd) h += item(C.i1, "MACD", v(ind.macd, 2) + " / " + v(ind.sig, 2));
-  h += xLegend(i);
+  h += xLegend(i); renderDataWindow(i);
   cmpData.forEach(function (c, ci) { var cb = c.bars[i]; if (cb) h += item(C["c" + (ci + 1)], c.sym.label, fmt(cb.c, c.sym.dec)); });
   if (h !== legendHtml) { $("#legend").innerHTML = h; legendHtml = h; }
 }

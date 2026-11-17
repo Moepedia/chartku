@@ -35,28 +35,28 @@ var SYMS = [
   { id: "TSLA", label: "TSLA", name: "Tesla Inc.", unit: "USD per share", cat: "Stocks", base: 248.7, dec: 2, vol: 0.03, lot: 10, y: "TSLA" },
   { id: "MSFT", label: "MSFT", name: "Microsoft Corp.", unit: "USD per share", cat: "Stocks", base: 420, dec: 2, vol: 0.013, lot: 10, y: "MSFT" }
 ];
-var TU = { m: 60, H: 3600, D: 86400, W: 604800, M: 2592000 };
-var TUN = { m: ["minute", "minutes"], H: ["hour", "hours"], D: ["day", "days"], W: ["week", "weeks"], M: ["month", "months"] };
+var TU = { S: 1, T: 1, R: 60, m: 60, H: 3600, D: 86400, W: 604800, M: 2592000 };
+var TUN = { S: ["second", "seconds"], T: ["tick", "ticks"], R: ["range", "ranges"], m: ["minute", "minutes"], H: ["hour", "hours"], D: ["day", "days"], W: ["week", "weeks"], M: ["month", "months"] };
 function mkTf(n, u) { var t = { k: n + u, s: n * TU[u], n: n, u: u }; if (u === "M") t.mo = n; return t; }
 var TFS = [];
-[["m", [1, 2, 3, 5, 10, 15, 30, 45]], ["H", [1, 2, 3, 4, 6, 8, 12]], ["D", [1]], ["W", [1]], ["M", [1, 3, 6, 12]]].forEach(function (g) { g[1].forEach(function (n) { TFS.push(mkTf(n, g[0])); }); });
+[["T", [1, 10, 100, 1000]], ["S", [1, 5, 10, 15, 30, 45]], ["m", [1, 2, 3, 5, 10, 15, 30, 45]], ["H", [1, 2, 3, 4]], ["D", [1]], ["W", [1]], ["M", [1, 3, 6, 12]], ["R", [1, 10, 100, 1000]]].forEach(function (g) { g[1].forEach(function (n) { TFS.push(mkTf(n, g[0])); }); });
 var CTF = [];
-function tfOk(n, u) { var mx = { m: 1439, H: 168, D: 365, W: 52, M: 24 }[u]; return !!mx && n === Math.floor(n) && n >= 1 && n <= mx; }
+function tfOk(n, u) { var mx = { S: 59, T: 10000, R: 10000, m: 1439, H: 168, D: 365, W: 52, M: 24 }[u]; return !!mx && n === Math.floor(n) && n >= 1 && n <= mx; }
 function addCustomTf(n, u) {
   if (!tfOk(n, u)) return null;
   var t = mkTf(n, u), a = TFS.concat(CTF), i;
-  for (i = 0; i < a.length; i++) if (a[i].k === t.k || (a[i].s === t.s && !!a[i].mo === !!t.mo)) return a[i];
+  for (i = 0; i < a.length; i++) if (a[i].k === t.k || (a[i].s === t.s && !!a[i].mo === !!t.mo && "TR".indexOf(a[i].u) < 0 && "TR".indexOf(t.u) < 0)) return a[i];
   CTF.push(t); CTF.sort(function (x, y) { return x.s - y.s; }); return t;
 }
 function tfByKey(k) {
   var a = TFS.concat(CTF), i, m;
   for (i = 0; i < a.length; i++) if (a[i].k === k) return a[i];
-  m = /^(\d{1,4})([mHDWM])$/.exec(k || "");
+  m = /^(\d{1,5})([STRmHDWM])$/.exec(k || "");
   return m ? addCustomTf(+m[1], m[2]) : null;
 }
 function tfLabel(t) { return t.n + " " + TUN[t.u][t.n === 1 ? 0 : 1]; }
 var TF_D = tfByKey("1D"), TF_H = tfByKey("1H");
-var TYPES = [["candles", "Candles"], ["hollow", "Hollow candles"], ["vcandles", "Volume candles"], ["bars", "OHLC bars"], ["line", "Line"], ["linem", "Line with markers"], ["step", "Step line"], ["area", "Area"], ["hlcarea", "HLC area"], ["baseline", "Baseline"], ["columns", "Columns"], ["highlow", "High-low"], ["ha", "Heikin Ashi"], ["renko", "Renko"], ["lbreak", "Line break"], ["kagi", "Kagi"], ["pnf", "Point & figure"], ["range", "Range"]];
+var TYPES = [["bars", "Bars"], ["candles", "Candles"], ["hollow", "Hollow candles"], ["vcandles", "Volume candles"], ["line", "Line"], ["linem", "Line with markers"], ["step", "Step line"], ["area", "Area"], ["hlcarea", "HLC area"], ["baseline", "Baseline"], ["columns", "Columns"], ["highlow", "High-low"], ["footprint", "Volume footprint"], ["tpo", "Time price opportunity"], ["svp", "Session volume profile"], ["ha", "Heikin Ashi"], ["renko", "Renko"], ["lbreak", "Line break"], ["kagi", "Kagi"], ["pnf", "Point & figure"], ["range", "Range"]];
 var INDS = [["sma", "SMA 20"], ["ema", "EMA 50"], ["bb", "Bollinger Bands 20, 2"], ["vwap", "VWAP"], ["vol", "Volume"], ["rsi", "RSI 14"], ["macd", "MACD 12 26 9"], ["stoch", "Stochastic"], ["atr", "ATR"], ["adx", "ADX / DMI"], ["st", "Supertrend x3"], ["ichi", "Ichimoku 9 26 52"]];
 var LNAME = { sma: "SMA", ema: "EMA", bb: "Bollinger Bands", rsi: "RSI", stoch: "Stochastic", atr: "ATR", adx: "ADX / DMI", st: "Supertrend x3" };
 var LENK = { sma: "sma", ema: "ema", bb: "bb", rsi: "rsi", stoch: "stoch", atr: "atr", adx: "adx", st: "st" };
@@ -78,7 +78,7 @@ function save() {
   clearTimeout(saveT);
   saveT = setTimeout(function () {
     try {
-      localStorage.setItem(KEY, JSON.stringify({ sym: S.sym.id, tf: S.tf.k, type: S.type, scale: S.scale, invert: S.invert, lockScale: S.lockScale, hilo: S.hilo, events: S.events, ind: S.ind, xi: S.xi, cmp: S.cmp, cmpP: S.cmpP, cmpT: S.cmpT, colOv: S.colOv, iw: S.iw, ihide: S.ihide, sty: S.sty, magnet: S.magnet, magStr: S.magStr, curType: S.curType, grid: S.grid, tz: S.tz, src: srcPref, len: S.len, ctf: CTF.map(function (t) { return t.k; }), ftf: S.ftf, gcur: S.gcur, keep: S.keep, emojiCh: S.emojiCh,
+      localStorage.setItem(KEY, JSON.stringify({ sym: S.sym.id, tf: S.tf.k, type: S.type, scale: S.scale, invert: S.invert, lockScale: S.lockScale, hilo: S.hilo, events: S.events, ind: S.ind, xi: S.xi, favInd: S.favInd, cmp: S.cmp, cmpP: S.cmpP, cmpT: S.cmpT, colOv: S.colOv, iw: S.iw, ihide: S.ihide, sty: S.sty, magnet: S.magnet, magStr: S.magStr, curType: S.curType, grid: S.grid, tz: S.tz, src: srcPref, len: S.len, ctf: CTF.map(function (t) { return t.k; }), ftf: S.ftf, gcur: S.gcur, keep: S.keep, emojiCh: S.emojiCh,
         drawings: S.drawings, alerts: S.alerts, watch: S.watch, acc: S.acc, pine: S.pine, theme: document.documentElement.getAttribute("data-theme") || "" }));
     } catch (e) { /* storage unavailable */ }
   }, 300);
@@ -92,7 +92,7 @@ var S = {
   ind: Object.assign({ sma: false, ema: false, bb: false, vwap: false, vol: false, rsi: false, macd: false, stoch: false, atr: false, adx: false, st: false, ichi: false }, saved.ind || {}),
   len: Object.assign({ sma: 20, ema: 50, bb: 20, rsi: 14, stoch: 14, atr: 14, adx: 14, st: 10 }, saved.len || {}), hideD: false,
   cmp: (saved.cmp || []).filter(function (id) { return N_(id); }).slice(0, 3),
-  cmpP: (saved.cmpP || []).filter(function (id) { return N_(id); }).slice(0, 4), range: null, cmpT: saved.cmpT || {}, colOv: saved.colOv || {}, magnet: !!saved.magnet, magStr: saved.magStr === "strong" ? "strong" : "weak", curType: ["dot", "arrow"].indexOf(saved.curType) >= 0 ? saved.curType : "cross", grid: saved.grid !== false, tz: saved.tz || "local",
+  cmpP: (saved.cmpP || []).filter(function (id) { return N_(id); }).slice(0, 4), range: null, cmpT: saved.cmpT || {}, colOv: saved.colOv || {}, magnet: !!saved.magnet, magStr: saved.magStr === "strong" ? "strong" : "weak", curType: ["dot", "arrow", "demo"].indexOf(saved.curType) >= 0 ? saved.curType : "cross", grid: saved.grid !== false, tz: saved.tz || "local",
   iw: saved.iw || {}, ihide: saved.ihide || {}, sty: Object.assign({ lastLine: true, lw: 2 }, saved.sty || {}), tool: "cursor", gcur: Object.assign({}, saved.gcur || {}), keep: !!saved.keep, emojiCh: saved.emojiCh || "\u2B50",
   ftf: (saved.ftf || ["1m", "5m", "15m", "1H", "4H", "1D", "1W"]).filter(function (k) { return tfByKey(k); }), barW: 9, off: 6, cx: null, cy: null, yScale: 1, yShift: 0, yMan: false,
   sel: null, pend: null, meas: null,

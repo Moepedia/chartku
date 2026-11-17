@@ -102,7 +102,7 @@ function undo() { if (!undoS.length) return; redoS.push(JSON.stringify(S.drawing
 function redo() { if (!redoS.length) return; undoS.push(JSON.stringify(S.drawings)); S.drawings = JSON.parse(redoS.pop()); S.sel = null; syncSel(); syncUndo(); draw(); save(); }
 function finishBrush() {
   var pts = drag.pts; if (pts.length < 3) return;
-  snap(); var d = { id: "d" + Date.now().toString(36) + Math.floor(Math.random() * 1e4), type: "brush", p1: pts[0], pts: pts, c: "acc", w: 1.5 };
+  snap(); var d = { id: "d" + Date.now().toString(36) + Math.floor(Math.random() * 1e4), type: drag && drag.hl ? "highlighter" : "brush", p1: pts[0], pts: pts, c: "acc", w: 1.5 };
   (S.drawings[S.sym.id] = S.drawings[S.sym.id] || []).push(d); save();
 }
 /* ---------- range bar, clock, extras ---------- */
@@ -193,7 +193,7 @@ function drawDrawings(C) {
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, G.pw, G.ph); ctx.clip();
   var list = S.hideD ? [] : (S.drawings[S.sym.id] || []);
   list.forEach(function (d) { drawOne(d, C, false); });
-  if (drag && drag.kind === "brush") drawOne({ type: "brush", pts: drag.pts, p1: drag.pts[0], c: "acc", w: 1.5 }, C, true);
+  if (drag && drag.kind === "brush") drawOne({ type: drag.hl ? "highlighter" : "brush", pts: drag.pts, p1: drag.pts[0], c: "acc", w: 1.5 }, C, true);
   if (S.pend && S.cx !== null && S.cx < G.pw && S.tool !== "text") {
     var p2 = toPt(S.cx, S.cy);
     if (S.pend.type === "measure") drawMeasure({ p1: S.pend.p1, p2: p2 }, C); else if (S.pend.pts) { drawOne({ type: S.pend.type, p1: S.pend.pts[0], pts: S.pend.pts.concat([p2]), c: "acc", w: 1.5 }, C, true); } else { var pdv = S.pend, pv; if (THREE[pdv.type]) pv = pdv.p2 ? { type: pdv.type, p1: pdv.p1, p2: pdv.p2, p3: p2 } : { type: "trend", p1: pdv.p1, p2: p2 }; else pv = { type: pdv.type, p1: pdv.p1, p2: p2 }; pv.c = "acc"; pv.w = 1.5; drawOne(pv, C, true); }

@@ -101,6 +101,7 @@ var XBUILT = [["sma", "Moving Average (SMA)", "trend"], ["ema", "Moving Average 
 
 /* ---- state / hitung ---- */
 S.xi = Array.isArray(saved.xi) ? saved.xi : [];
+S.favInd = Array.isArray(saved.favInd) ? saved.favInd : [];
 S.xi = S.xi.filter(function (x) { return x && XIND[x.id]; }).map(function (x) { x.u = x.u || ++xUid; xUid = Math.max(xUid, x.u); return x; });
 function xParams(x) { return Object.assign({}, XIND[x.id].p, x.p || {}); }
 function xTitle(x) { var d = XIND[x.id], ps = Object.keys(d.p).map(function (k) { return xParams(x)[k]; }); return d.n.split(" ").length > 3 ? d.n : d.n + (ps.length ? " " + ps.join(", ") : ""); }
@@ -169,7 +170,7 @@ function xLegend(i, item) {
   S.xi.forEach(function (x) {
     var r = XR[x.u]; if (!r) return; var vals = r.plots.map(function (p) { var v = p.d[i]; return v == null ? "\u2013" : (Math.abs(v) >= 1000 ? v.toFixed(1) : v.toFixed(Math.abs(v) < 1 ? 4 : 2)); }).join(" ");
     var col = xCol(x, r.plots[0] || { c: XPAL[0] }, 0);
-    h += "<span class=\"chip\" data-xu=\"" + x.u + "\" style=\"color:" + col + (x.h ? ";opacity:.45" : "") + "\">" + xTitle(x) + " <b style=\"font-weight:500\">" + vals + "</b><span class=\"lt\"><button type=\"button\" data-xa=\"eye\" title=\"Sembunyikan/tampilkan\" aria-label=\"Sembunyikan\">\uD83D\uDC41</button><button type=\"button\" data-xa=\"set\" title=\"Pengaturan\" aria-label=\"Pengaturan\">\u2699</button><button type=\"button\" data-xa=\"del\" title=\"Hapus\" aria-label=\"Hapus\">\u00D7</button></span></span>";
+    h += "<span class=\"chip\" data-xu=\"" + x.u + "\" style=\"color:" + col + (x.h ? ";opacity:.45" : "") + "\">" + legName(xTitle(x)) + (S.sty.iVal === false ? "" : " <b style=\"font-weight:500\">" + vals + "</b>") + "<span class=\"lt\"><button type=\"button\" data-xa=\"eye\" title=\"Sembunyikan/tampilkan\" aria-label=\"Sembunyikan\">\uD83D\uDC41</button><button type=\"button\" data-xa=\"set\" title=\"Pengaturan\" aria-label=\"Pengaturan\">\u2699</button><button type=\"button\" data-xa=\"del\" title=\"Hapus\" aria-label=\"Hapus\">\u00D7</button></span></span>";
   });
   return h;
 }

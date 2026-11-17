@@ -1,5 +1,6 @@
 /* 10b-indlg: dialog "Indikator" (modal, pencarian, kategori, daftar aktif) dan pengaturan indikator tambahan */
 var idCat = "all", idQ = "", idEl = null;
+function idFavKey(r) { return r.kind === "b" ? "b:" + r.k : "x:" + r.id; }
 function closeIndDlg() { if (idEl) idEl.hidden = true; }
 document.addEventListener("keydown", function (e) { if (e.key === "Escape" && idEl && !idEl.hidden) { e.stopPropagation(); closeIndDlg(); } }, true);
 function idBuiltKey(k) { return $("#indPop [data-k=\"" + k + "\"]"); }
@@ -8,20 +9,21 @@ function idRows() {
   XBUILT.forEach(function (b) { if (S.ind[b[0]]) act.push({ kind: "b", k: b[0], n: b[1] }); });
   S.xi.forEach(function (x) { act.push({ kind: "x", u: x.u, n: xTitle(x) }); });
   if (idCat === "active") return act.map(function (a) { a.active = true; return a; });
-  XBUILT.forEach(function (b) { if ((idCat === "all" || idCat === b[2]) && (!q || b[1].toLowerCase().indexOf(q) >= 0)) rows.push({ kind: "b", k: b[0], n: b[1], g: b[2], on: !!S.ind[b[0]] }); });
-  XORDER.forEach(function (id) { var d = XIND[id]; if ((idCat === "all" || idCat === d.g) && (!q || d.n.toLowerCase().indexOf(q) >= 0)) rows.push({ kind: "x", id: id, n: d.n, g: d.g, ov: d.ov }); });
+  var fv = idCat === "fav";
+  XBUILT.forEach(function (b) { if ((idCat === "all" || fv || idCat === b[2]) && (!fv || S.favInd.indexOf("b:" + b[0]) >= 0) && (!q || b[1].toLowerCase().indexOf(q) >= 0)) rows.push({ kind: "b", k: b[0], n: b[1], g: b[2], on: !!S.ind[b[0]] }); });
+  XORDER.forEach(function (id) { var d = XIND[id]; if ((idCat === "all" || fv || idCat === d.g) && (!fv || S.favInd.indexOf("x:" + id) >= 0) && (!q || d.n.toLowerCase().indexOf(q) >= 0)) rows.push({ kind: "x", id: id, n: d.n, g: d.g, ov: d.ov }); });
   rows.sort(function (a, b) { return a.n.localeCompare(b.n); });
   return rows;
 }
 function idRender() {
   var act = XBUILT.filter(function (b) { return S.ind[b[0]]; }).length + S.xi.length, h = "";
-  var nav = [["active", "Aktif (" + act + ")"]].concat(XGROUPS);
-  $(".idl", idEl).innerHTML = nav.map(function (n) { return "<button type=\"button\" data-cat=\"" + n[0] + "\" aria-pressed=\"" + (idCat === n[0]) + "\">" + n[1] + "</button>"; }).join("");
+  var nb = function (n) { return "<button type=\"button\" data-cat=\"" + n[0] + "\" aria-pressed=\"" + (idCat === n[0]) + "\">" + n[1] + "</button>"; };
+  $(".idl", idEl).innerHTML = "<div class=\"idh\">PERSONAL</div>" + nb(["fav", "Favorites"]) + nb(["active", "Active (" + act + ")"]) + "<div class=\"idh\">BUILT-IN</div>" + XGROUPS.map(function (g, k) { return nb(k ? g : ["all", "Technicals"]); }).join("");
   var rows = idRows(), gl = { trend: "Tren", osc: "Osilator", vola: "Volatilitas", vol: "Volume" };
-  if (!rows.length) h = "<li class=\"idnone\">" + (idCat === "active" ? "Belum ada indikator aktif. Pilih dari daftar." : "Tidak ada hasil.") + "</li>";
+  if (!rows.length) h = "<li class=\"idnone\">" + (idCat === "active" ? "No active indicators. Pick one from the list." : idCat === "fav" ? "No favorites yet. Click the star next to an indicator." : "No results.") + "</li>";
   rows.forEach(function (r) {
     if (r.active) h += "<li class=\"idrow act\"><span class=\"nm\">" + r.n + "</span><span class=\"idacts\"><button type=\"button\" data-ia=\"cfg\" data-kind=\"" + r.kind + "\" data-key=\"" + (r.kind === "b" ? r.k : r.u) + "\" aria-label=\"Pengaturan " + r.n + "\">\u2699</button><button type=\"button\" data-ia=\"del\" data-kind=\"" + r.kind + "\" data-key=\"" + (r.kind === "b" ? r.k : r.u) + "\" aria-label=\"Hapus " + r.n + "\">\u00D7</button></span></li>";
-    else h += "<li class=\"idrow\"><button type=\"button\" class=\"idpick\" data-ia=\"add\" data-kind=\"" + r.kind + "\" data-key=\"" + (r.kind === "b" ? r.k : r.id) + "\"><span class=\"nm\">" + r.n + "</span><span class=\"tg\">" + (gl[r.g] || "") + (r.ov === false ? " \u00B7 panel" : r.ov ? " \u00B7 overlay" : "") + "</span>" + (r.on ? "<span class=\"on\">Aktif</span>" : "") + "</button></li>";
+    else h += "<li class=\"idrow\"><button type=\"button\" class=\"idstar\" data-ia=\"fav\" data-kind=\"" + r.kind + "\" data-key=\"" + (r.kind === "b" ? r.k : r.id) + "\" aria-label=\"Favorite\" aria-pressed=\"" + (S.favInd.indexOf(idFavKey(r)) >= 0) + "\">" + (S.favInd.indexOf(idFavKey(r)) >= 0 ? "\u2605" : "\u2606") + "</button><button type=\"button\" class=\"idpick\" data-ia=\"add\" data-kind=\"" + r.kind + "\" data-key=\"" + (r.kind === "b" ? r.k : r.id) + "\"><span class=\"nm\">" + r.n + "</span><span class=\"tg\">" + (gl[r.g] || "") + (r.ov === false ? " \u00B7 panel" : r.ov ? " \u00B7 overlay" : "") + "</span>" + (r.on ? "<span class=\"on\">Aktif</span>" : "") + "</button></li>";
   });
   $(".idlist", idEl).innerHTML = h;
 }
@@ -35,6 +37,7 @@ function openIndDlg(cat) {
       var c = e.target.closest("[data-cat]"); if (c) { idCat = c.dataset.cat; idRender(); return; }
       var b = e.target.closest("[data-ia]"); if (!b) return; var a = b.dataset.ia, key = b.dataset.key;
       if (a === "close") closeIndDlg();
+      else if (a === "fav") { var fk = (b.dataset.kind === "b" ? "b:" : "x:") + key, fi = S.favInd.indexOf(fk); if (fi >= 0) S.favInd.splice(fi, 1); else S.favInd.push(fk); save(); idRender(); }
       else if (a === "add") {
         if (b.dataset.kind === "b") { var cb = idBuiltKey(key); if (cb) { if (cb.checked) { toast("Indikator sudah aktif"); } else cb.click(); } }
         else { xAdd(key); toast(XIND[key].n + " ditambahkan"); }
@@ -47,7 +50,7 @@ function openIndDlg(cat) {
     idEl.addEventListener("input", function (e) { if (e.target.id === "idq") { idQ = e.target.value; idRender(); } });
     idEl.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); closeIndDlg(); } });
   }
-  idCat = cat || "all"; idQ = ""; $("#idq", idEl).value = ""; idEl.hidden = false; idRender(); $("#idq", idEl).focus();
+  idCat = cat || (S.favInd.length ? "fav" : "all"); idQ = ""; $("#idq", idEl).value = ""; idEl.hidden = false; idRender(); $("#idq", idEl).focus();
 }
 
 /* pengaturan satu indikator tambahan */
